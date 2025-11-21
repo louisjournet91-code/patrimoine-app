@@ -263,59 +263,65 @@ df['PV'] = df['Valo'] - df['Investi']
 df['Perf%'] = df.apply(lambda x: ((x['Prix_Actuel']-x['PRU'])/x['PRU']*100) if x['PRU']>0 else 0, axis=1)
 df['Var_Jour'] = df['Valo'] - (df['Quantité'] * df['Prev'])
 
-@st.cache_data(ttl=3600) # Cache 1h pour ne pas ralentir l'app
+@st.cache_data(ttl=3600)
 def get_market_monitor():
-    # Mapping Tickers Utilisateur -> Yahoo Finance
+    # Mapping : Nom affiché -> Ticker Yahoo Finance
     targets = {
-        "^VIX": "Indice Peur (VIX)",
-        "^FCHI": "CAC 40",
-        "^GSPC": "S&P 500",
-        "CW8.PA": "ETF MSCI World",
-        "PAEEM.PA": "Emerging Markets",
-        "PCEU.PA": "MSCI Europe",
-        "^STOXX50E": "Euro Stoxx 50",
-        "PLEM.PA": "EM ex Egypt"
+        "INDEX CBOE:VIX": "^VIX",
+        "CAC 40": "^FCHI",
+        "S&P 500": "^GSPC",
+        "ETF MSCI World": "CW8.PA",
+        "Emerging Market": "PAEEM.PA",
+        "MSCI Europe": "PCEU.PA",
+        "Euro Stoxx 50": "^STOXX50E",
+        "Emerging ex Egypt": "PLEM.PA"
     }
     
-    tickers = list(targets.keys())
     data = []
     
     try:
-        # On récupère 2 mois pour assurer le glissant 1 mois
-        hist = yf.download(tickers, period="2mo", progress=False)['Close']
+        # Téléchargement groupé (plus rapide)
+        tickers_list = list(targets.values())
+        # On prend 3 mois pour avoir assez d'historique pour la volatilité et le 1 mois glissant
+        hist = yf.download(tickers_list, period="3mo", progress=False)['Close']
         
-        for t in tickers:
-            if t in hist.columns:
-                series = hist[t].dropna()
-                if len(series) > 20:
+        for name, ticker in targets.items():
+            if ticker in hist.columns:
+                series = hist[ticker].dropna()
+                if len(series) > 22:
                     current = series.iloc[-1]
                     prev_day = series.iloc[-2]
-                    prev_month = series.iloc[-22] # ~1 mois de bourse
+                    # Environ 22 jours de bourse pour 1 mois
+                    prev_month = series.iloc[-22] if len(series) >= 22 else series.iloc[0]
                     
-                    # Perf Jour
+                    # Calculs
                     perf_d = (current - prev_day) / prev_day
-                    
-                    # Perf Mois
                     perf_m = (current - prev_month) / prev_month
                     
-                    # Volatilité (Ecart-type 30j annualisé)
+                    # Volatilité (Annualisée sur les 30 derniers jours)
                     daily_ret = series.pct_change().tail(30)
-                    volatility = daily_ret.std() * (252**0.5) 
+                    volatility = daily_ret.std() * (252**0.5)
                     
-                    # Cas particulier VIX : On affiche le prix brut, pas de perf mois pertinente
-                    if t == "^VIX":
-                        perf_m = 0.0
-                        volatility = current / 100 # Le VIX est déjà une volatilité
+                    # Cas VIX (C'est déjà un indice de volatilité, pas un prix d'actif)
+                    if ticker == "^VIX":
+                        perf_m = (current - prev_month) / prev_month # Variation du stress
+                        volatility = current # On affiche le niveau du VIX directement dans la colonne volatilité
                     
                     data.append({
-                        "Indice": targets[t],
-                        "Prix": current,
-                        "1J": perf_d,
-                        "1M": perf_m,
+                        "Indice": name,
+                        "Ticker": ticker, # Pour info
+                        "Prix actuel": current,
+                        "Perf. du Jour": perf_d,
+                        "Perf 1 Mois": perf_m,
                         "Volatilité": volatility
                     })
-    except: pass
-    
+            else:
+                # Gestion des erreurs (Si Yahoo ne trouve pas, on met des 0 ou N/A)
+                data.append({"Indice": name, "Prix actuel": 0, "Perf. du Jour": 0, "Perf 1 Mois": 0, "Volatilité": 0})
+
+    except Exception as e:
+        st.error(f"Erreur data marchés : {e}")
+        
     return pd.DataFrame(data)
 
 # --- CALCULS TOTAUX ---
@@ -505,10 +511,8 @@ with tab2:
                 st.plotly_chart(fig_b, use_container_width=True)
         except: pass
     else: st.info("Pas d'historique.")
-# 1. MONITOR DE MARCHÉ (Nouveau : Placé en haut)
+# --- MONITOR DE MARCHÉ (TABLEAU SIMPLE) ---
     st.subheader("🌍 Marchés & Indices")
-    
-    # On appelle la fonction de calcul (assurez-vous de l'avoir collée dans la partie 4 FONCTIONS)
     df_market = get_market_monitor()
     
     if not df_market.empty:
@@ -517,30 +521,28 @@ with tab2:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "Indice": st.column_config.TextColumn("Actif", width="medium"),
-                "Prix": st.column_config.NumberColumn("Niveau", format="%.2f"),
-                # Configuration précise pour afficher les variations en % (ex: 0.01 = 1%)
-                "1J": st.column_config.ProgressColumn(
-                    "Jour", 
-                    format="%+.2f %%", 
-                    min_value=-0.03, max_value=0.03, # Echelle de -3% à +3%
-                    help="Variation journalière"
+                "Indice": st.column_config.TextColumn("Indice", width="medium"),
+                "Ticker": st.column_config.TextColumn("Ticker", width="small"),
+                "Prix actuel": st.column_config.NumberColumn("Prix", format="%.2f"),
+                
+                # ICI : Modification demandée -> Plus de jauge, juste le %
+                "Perf. du Jour": st.column_config.NumberColumn(
+                    "Perf. Jour", 
+                    format="%.2f %%" # Affiche le % simple
                 ),
-                "1M": st.column_config.ProgressColumn(
-                    "1 Mois", 
-                    format="%+.2f %%", 
-                    min_value=-0.10, max_value=0.10, # Echelle de -10% à +10%
-                    help="Variation sur 1 mois glissant"
+                "Perf 1 Mois": st.column_config.NumberColumn(
+                    "Perf. 1 Mois", 
+                    format="%.2f %%"
                 ),
                 "Volatilité": st.column_config.NumberColumn(
                     "Volatilité (An)", 
-                    format="%.1f %%",
-                    help="Volatilité annualisée sur 30 jours"
+                    format="%.2f %%",
+                    help="Pour le VIX, c'est la valeur de l'indice."
                 )
             }
         )
     else:
-        st.info("Chargement des données de marché...")
+        st.info("Chargement des données boursières...")
 
     st.markdown("---")
 
