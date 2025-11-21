@@ -323,7 +323,7 @@ def op_trade(sens, tick, q, p, nom=""):
 # En-tête Minimaliste
 col_logo, col_title = st.columns([1, 5])
 with col_title:
-    st.markdown("## 🏛️ Mon Empire Patrimonial")
+    st.markdown("## 🏛️ Patrimoine")
     st.caption(f"Dernière valorisation : {datetime.now().strftime('%d %B %Y • %H:%M')}")
 
 # --- HERO SECTION (Le Gros Chiffre) ---
