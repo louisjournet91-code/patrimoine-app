@@ -41,7 +41,8 @@ INITIAL_PORTFOLIO = {
     "Ticker": ["ESE.PA", "DCAM.PA", "PUST.PA", "CL2.PA", "BTC-EUR", "CASH"],
     "Nom": ["BNP S&P 500", "Amundi World", "Lyxor Nasdaq", "Amundi USA x2", "Bitcoin", "Liquidités"],
     "Type": ["ETF Action", "ETF Action", "ETF Tech", "ETF Levier", "Crypto", "Cash"],
-    "Quantité": [141.0, 716.0, 55.0, 176.0, 0.01, 510.84],
+    # Correction quantité BTC appliquée ici :
+    "Quantité": [141.0, 716.0, 55.0, 176.0, 0.01275433, 510.84],
     "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
 }
 
