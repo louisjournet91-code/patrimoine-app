@@ -262,11 +262,56 @@ def op_trade(sens, tick, q, p, nom=""):
 st.title("Gestion Patrimoniale Expert")
 st.caption(f"Valo Live : {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
+# --- CALCULS KPI AVANCÉS (AJOUT) ---
+MONTANT_INITIAL = 15450.00  # Votre mise de départ fixe
+DATE_DEBUT = datetime(2022, 1, 1) # Date de départ pour le calcul du temps
+
+# 1. Décomposition Cash / Investi
+cash_dispo = df[df['Ticker']=='CASH']['Valo'].sum()
+valo_investi = df[df['Ticker']!='CASH']['Valo'].sum()     # Valeur actuelle des titres
+cout_investi = df[df['Ticker']!='CASH']['Investi'].sum()  # PRU total des titres
+
+# 2. Performance Totale (Vue Patrimoine global)
+perf_totale_eur = total_pf - MONTANT_INITIAL
+perf_totale_pct = (perf_totale_eur / MONTANT_INITIAL) * 100
+
+# 3. Performance Actifs (Vue Marché pure)
+perf_actif_eur = valo_investi - cout_investi
+perf_actif_pct = (perf_actif_eur / cout_investi) * 100 if cout_investi != 0 else 0
+
+# 4. Indicateurs Temporels (CAGR / Annualisé)
+days_held = (datetime.now() - DATE_DEBUT).days
+years = days_held / 365.25
+# CAGR = (Valeur Finale / Valeur Initiale)^(1/n) - 1
+cagr = ((total_pf / MONTANT_INITIAL) ** (1/years) - 1) * 100 if years > 0 else 0
+rendement_annuel = perf_totale_pct / years if years > 0 else 0
+
+# --- AFFICHAGE DE LA GRILLE DE DONNÉES ---
+
+st.markdown("### 🏦 Synthèse Globale")
 k1, k2, k3, k4 = st.columns(4)
-k1.metric("Total", f"{total_pf:,.2f} €")
-k2.metric("PEA", f"{val_pea:,.2f} €")
-k3.metric("PV Latente", f"{total_pv:+,.2f} €")
-k4.metric("Volatilité Jour (Yahoo)", f"{volat_jour_live:+,.2f} €", help="Gain/Perte depuis la clôture d'hier")
+k1.metric("Portefeuille Total", f"{total_pf:,.2f} €")
+k2.metric("Montant Initial", f"{MONTANT_INITIAL:,.2f} €")
+k3.metric("Liquidités", f"{cash_dispo:,.2f} €")
+k4.metric("Plus-Value du Jour", f"{volat_jour_live:+,.2f} €", help="Variation depuis la clôture veille")
+
+st.markdown("---")
+
+st.markdown("### 📈 Performance des Actifs (Investi)")
+k5, k6, k7, k8 = st.columns(4)
+k5.metric("Valorisation Investi", f"{valo_investi:,.2f} €")
+k6.metric("Montant Investi", f"{cout_investi:,.2f} €")
+k7.metric("Perf. Actif (€)", f"{perf_actif_eur:+,.2f} €")
+k8.metric("Perf. Actif (%)", f"{perf_actif_pct:+.2f} %")
+
+st.markdown("---")
+
+st.markdown("### ⏱️ Performance Temporelle & Totale")
+k9, k10, k11, k12 = st.columns(4)
+k9.metric("Perf. Totale (€)", f"{perf_totale_eur:+,.2f} €")
+k10.metric("Perf. Totale (%)", f"{perf_totale_pct:+.2f} %")
+k11.metric("Rendement Annualisé", f"{rendement_annuel:.2f} %")
+k12.metric("CAGR", f"{cagr:.2f} %", help="Taux de croissance annuel composé")
 
 st.markdown("---")
 
