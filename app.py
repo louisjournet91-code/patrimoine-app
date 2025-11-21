@@ -263,6 +263,61 @@ df['PV'] = df['Valo'] - df['Investi']
 df['Perf%'] = df.apply(lambda x: ((x['Prix_Actuel']-x['PRU'])/x['PRU']*100) if x['PRU']>0 else 0, axis=1)
 df['Var_Jour'] = df['Valo'] - (df['Quantité'] * df['Prev'])
 
+@st.cache_data(ttl=3600) # Cache 1h pour ne pas ralentir l'app
+def get_market_monitor():
+    # Mapping Tickers Utilisateur -> Yahoo Finance
+    targets = {
+        "^VIX": "Indice Peur (VIX)",
+        "^FCHI": "CAC 40",
+        "^GSPC": "S&P 500",
+        "CW8.PA": "ETF MSCI World",
+        "PAEEM.PA": "Emerging Markets",
+        "PCEU.PA": "MSCI Europe",
+        "^STOXX50E": "Euro Stoxx 50",
+        "PLEM.PA": "EM ex Egypt"
+    }
+    
+    tickers = list(targets.keys())
+    data = []
+    
+    try:
+        # On récupère 2 mois pour assurer le glissant 1 mois
+        hist = yf.download(tickers, period="2mo", progress=False)['Close']
+        
+        for t in tickers:
+            if t in hist.columns:
+                series = hist[t].dropna()
+                if len(series) > 20:
+                    current = series.iloc[-1]
+                    prev_day = series.iloc[-2]
+                    prev_month = series.iloc[-22] # ~1 mois de bourse
+                    
+                    # Perf Jour
+                    perf_d = (current - prev_day) / prev_day
+                    
+                    # Perf Mois
+                    perf_m = (current - prev_month) / prev_month
+                    
+                    # Volatilité (Ecart-type 30j annualisé)
+                    daily_ret = series.pct_change().tail(30)
+                    volatility = daily_ret.std() * (252**0.5) 
+                    
+                    # Cas particulier VIX : On affiche le prix brut, pas de perf mois pertinente
+                    if t == "^VIX":
+                        perf_m = 0.0
+                        volatility = current / 100 # Le VIX est déjà une volatilité
+                    
+                    data.append({
+                        "Indice": targets[t],
+                        "Prix": current,
+                        "1J": perf_d,
+                        "1M": perf_m,
+                        "Volatilité": volatility
+                    })
+    except: pass
+    
+    return pd.DataFrame(data)
+
 # --- CALCULS TOTAUX ---
 val_btc = df[df['Ticker'].str.contains("BTC")]['Valo'].sum()
 val_pea = df[~df['Ticker'].str.contains("BTC")]['Valo'].sum()
@@ -450,6 +505,25 @@ with tab2:
                 st.plotly_chart(fig_b, use_container_width=True)
         except: pass
     else: st.info("Pas d'historique.")
+    # --- NOUVEAU : MONITOR DE MARCHÉ ---
+    st.subheader("🌍 Marchés & Indices")
+    df_market = get_market_monitor()
+    
+    if not df_market.empty:
+        st.dataframe(
+            df_market,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Indice": st.column_config.TextColumn("Actif", width="medium"),
+                "Prix": st.column_config.NumberColumn("Niveau", format="%.2f"),
+                "1J": st.column_config.ProgressColumn("Jour", format="%+.2f %%", min_value=-0.05, max_value=0.05),
+                "1M": st.column_config.ProgressColumn("1 Mois", format="%+.2f %%", min_value=-0.10, max_value=0.10),
+                "Volatilité": st.column_config.NumberColumn("Volatilité (An)", format="%.1f %%")
+            }
+        )
+    
+    st.markdown("---")
 
 with tab3:
     c_in, c_out = st.columns([1,3])
