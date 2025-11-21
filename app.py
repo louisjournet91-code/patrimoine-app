@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import os
 
-# --- 1. CONFIGURATION & STYLE PREMIUM ---
+# --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Gestion Patrimoniale Expert", layout="wide", page_icon="🏛️")
 
 st.markdown("""
@@ -20,17 +20,15 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
     .stTabs [data-baseweb="tab"] { background-color: #ffffff; border: 1px solid #e2e8f0; }
     .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #0f172a; color: white; }
-    .cash-module { border-left: 5px solid #10b981; padding-left: 10px; }
-    .trade-module { border-left: 5px solid #0f172a; padding-left: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. GESTION BDD (STANDARD FRANÇAIS : POINT-VIRGULE) ---
+# --- 2. CONSTANTES & FICHIERS ---
 
 FILE_PORTFOLIO = 'portefeuille.csv'
 FILE_HISTORY = 'historique.csv'
 
-# Colonnes de votre fichier historique
+# Colonnes Historique
 HIST_COLS = [
     "Date", "Total", "PEA", "BTC", "Plus-value", "Delta", "PV_du_Jour", 
     "ESE", "Flux_(€)", "PF_Return_TWR", "ESE_Return", 
@@ -45,52 +43,60 @@ INITIAL_PORTFOLIO = {
     "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
 }
 
-def clean_french_number(x):
-    """Nettoie les formats français (1 200,50 ou 0,5%)"""
+# --- 3. FONCTIONS DE CHARGEMENT (ROBUSTES) ---
+
+def safe_float_conversion(x):
+    """Force la conversion en nombre (gère 10,5 et 10.5)"""
+    if isinstance(x, (float, int)):
+        return float(x)
     if isinstance(x, str):
-        x = x.replace('%', '').replace(' ', '').replace(',', '.')
-        if x.count('.') > 1: x = x.replace('.', '', x.count('.') - 1)
-    try: return float(x)
-    except: return 0.0
+        # On nettoie tout ce qui n'est pas chiffre, point ou virgule
+        x = x.replace(' ', '').replace('%', '').replace('€', '')
+        x = x.replace(',', '.') # Remplace virgule par point
+        try:
+            return float(x)
+        except:
+            return 0.0
+    return 0.0
 
 def load_state():
     # 1. Portefeuille
     if 'portfolio_df' not in st.session_state:
         if os.path.exists(FILE_PORTFOLIO):
-            # On tente la lecture avec séparateur ; (Français) ou , (Anglais)
             try:
-                df = pd.read_csv(FILE_PORTFOLIO, sep=';') 
-                if len(df.columns) < 2: df = pd.read_csv(FILE_PORTFOLIO, sep=',') # Fallback
+                # Essai lecture ; puis ,
+                df = pd.read_csv(FILE_PORTFOLIO, sep=';')
+                if df.shape[1] < 2: df = pd.read_csv(FILE_PORTFOLIO, sep=',')
             except:
-                df = pd.read_csv(FILE_PORTFOLIO, sep=',')
+                df = pd.DataFrame(INITIAL_PORTFOLIO)
         else:
             df = pd.DataFrame(INITIAL_PORTFOLIO)
-            df.to_csv(FILE_PORTFOLIO, index=False, sep=';') # On sauvegarde en ;
+            df.to_csv(FILE_PORTFOLIO, index=False, sep=';')
         
-        df['Quantité'] = df['Quantité'].astype(float)
-        df['PRU'] = df['PRU'].astype(float)
+        # Nettoyage numérique forcé
+        df['Quantité'] = df['Quantité'].apply(safe_float_conversion)
+        df['PRU'] = df['PRU'].apply(safe_float_conversion)
         st.session_state['portfolio_df'] = df
 
-    # 2. Historique (Lecture forcée en ;)
+    # 2. Historique (Lecture Tolérante)
     if os.path.exists(FILE_HISTORY):
         try:
-            # C'est ici que se jouait l'erreur : on force sep=';'
-            df_hist = pd.read_csv(FILE_HISTORY, sep=';', engine='python')
+            # On essaie de lire, peu importe le séparateur
+            df_hist = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
             
-            # Si le fichier était encore en virgules, on retente
-            if len(df_hist.columns) < 5:
-                 df_hist = pd.read_csv(FILE_HISTORY, sep=',', engine='python')
-
-            # Nettoyage
-            for col in ['Total', 'PEA', 'BTC', 'Plus-value', 'PF_Return_TWR', 'ESE_Return']:
+            # --- NETTOYAGE CRITIQUE POUR ÉVITER L'ERREUR VALUE ERROR ---
+            # On force la conversion des colonnes clés en nombres PURS
+            cols_numeriques = ['Total', 'PEA', 'BTC', 'Plus-value']
+            for col in cols_numeriques:
                 if col in df_hist.columns:
-                    df_hist[col] = df_hist[col].apply(lambda x: clean_french_number(x) if isinstance(x, str) else x)
+                    df_hist[col] = df_hist[col].apply(safe_float_conversion)
             
+            # Conversion Date
             df_hist['Date'] = pd.to_datetime(df_hist['Date'], dayfirst=True, errors='coerce')
-            df_hist = df_hist.dropna(subset=['Date'])
+            df_hist = df_hist.dropna(subset=['Date']) # On vire les lignes sans date valide
             
         except Exception as e:
-            st.error(f"Erreur lecture historique (Vérifiez que le fichier utilise des points-virgules) : {e}")
+            st.error(f"Erreur fichier historique : {e}")
             df_hist = pd.DataFrame(columns=HIST_COLS)
     else:
         df_hist = pd.DataFrame(columns=HIST_COLS)
@@ -98,102 +104,54 @@ def load_state():
     return df_hist
 
 def save_portfolio():
-    # Sauvegarde en séparateur POINT-VIRGULE pour Excel France
     st.session_state['portfolio_df'].to_csv(FILE_PORTFOLIO, index=False, sep=';')
 
 def add_history_point(total, val_pea, val_btc, pv_totale):
+    # Relecture propre
     if os.path.exists(FILE_HISTORY):
-        try:
-            df = pd.read_csv(FILE_HISTORY, sep=';', engine='python')
-        except:
-            df = pd.read_csv(FILE_HISTORY, sep=',', engine='python')
+        try: df = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
+        except: df = pd.DataFrame(columns=HIST_COLS)
     else:
         df = pd.DataFrame(columns=HIST_COLS)
         
     today = datetime.now().strftime("%d/%m/%Y")
     
-    if today not in df['Date'].astype(str).values:
+    # Vérification doublon
+    dates_str = df['Date'].astype(str).values
+    if today not in dates_str:
         new_data = {
             "Date": today,
-            "Total": round(total, 2),
-            "PEA": round(val_pea, 2),
-            "BTC": round(val_btc, 2),
-            "Plus-value": round(pv_totale, 2),
-            # Valeurs par défaut pour combler les trous
-            "Delta": 0, "PV_du_Jour": 0, "ESE": 0, "Flux_(€)": 0,
-            "PF_Return_TWR": 0, "ESE_Return": 0, "PF_Index100": 0, "ESE_Index100": 0
+            "Total": round(total, 2), "PEA": round(val_pea, 2), "BTC": round(val_btc, 2),
+            "Plus-value": round(pv_totale, 2), "Delta": 0, "PV_du_Jour": 0, "ESE": 0, 
+            "Flux_(€)": 0, "PF_Return_TWR": 0, "ESE_Return": 0, "PF_Index100": 0, "ESE_Index100": 0
         }
         new_row = pd.DataFrame([new_data])
         df = pd.concat([df, new_row], ignore_index=True)
-        # SAUVEGARDE AVEC SÉPARATEUR ;
-        df.to_csv(FILE_HISTORY, index=False, sep=';') 
+        df.to_csv(FILE_HISTORY, index=False, sep=';') # Sauvegarde propre en ;
         return True
     return False
 
 df_history_static = load_state()
 
-# --- 3. MOTEUR TRANSACTIONNEL ---
-
-def operation_tresorerie(amount):
-    df = st.session_state['portfolio_df']
-    mask = df['Ticker'] == 'CASH'
-    if not mask.any():
-         new_cash = pd.DataFrame([{"Ticker": "CASH", "Nom": "Liquidités", "Type": "Cash", "Quantité": 0.0, "PRU": 1.0}])
-         df = pd.concat([df, new_cash], ignore_index=True)
-         mask = df['Ticker'] == 'CASH'
-    current = df.loc[mask, 'Quantité'].values[0]
-    df.loc[mask, 'Quantité'] = current + amount
-    st.session_state['portfolio_df'] = df
-    save_portfolio()
-
-def operation_trading(action, ticker, qty, price, nom="", type_a="Action"):
-    df = st.session_state['portfolio_df']
-    if ticker not in df['Ticker'].values:
-        if action == "Vente": return False, "Inconnu"
-        new_row = pd.DataFrame([{"Ticker": ticker, "Nom": nom, "Type": type_a, "Quantité": 0.0, "PRU": 0.0}])
-        df = pd.concat([df, new_row], ignore_index=True)
-    
-    mask_c = df['Ticker'] == 'CASH'
-    mask_a = df['Ticker'] == ticker
-    cash = df.loc[mask_c, 'Quantité'].values[0]
-    curr_q = df.loc[mask_a, 'Quantité'].values[0]
-    curr_p = df.loc[mask_a, 'PRU'].values[0]
-    total = qty * price
-    
-    if action == "Achat":
-        if cash < total: return False, "Cash manquant"
-        new_q = curr_q + qty
-        new_p = ((curr_q * curr_p) + total) / new_q
-        df.loc[mask_a, 'Quantité'] = new_q
-        df.loc[mask_a, 'PRU'] = new_p
-        df.loc[mask_c, 'Quantité'] = cash - total
-    elif action == "Vente":
-        if curr_q < qty: return False, "Pas assez de titres"
-        df.loc[mask_a, 'Quantité'] = curr_q - qty
-        df.loc[mask_c, 'Quantité'] = cash + total
-        
-    st.session_state['portfolio_df'] = df
-    save_portfolio()
-    return True, "Succès"
-
-# --- 4. PRIX LIVE ---
+# --- 4. MOTEUR PRIX ---
 
 @st.cache_data(ttl=60)
 def get_prices(tickers):
-    p = {"CASH": {"cur": 1.0, "prev": 1.0}}
+    prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
     real = [t for t in tickers if t != "CASH"]
     if real:
         try:
             d = yf.download(real, period="5d", progress=False)['Close']
             if len(real) == 1:
-                p[real[0]] = {"cur": float(d.iloc[-1]), "prev": float(d.iloc[-2])}
+                prices[real[0]] = {"cur": float(d.iloc[-1]), "prev": float(d.iloc[-2])}
             else:
-                l, pr = d.iloc[-1], d.iloc[-2]
+                l, p = d.iloc[-1], d.iloc[-2]
                 for t in real:
-                    if t in l.index: p[t] = {"cur": float(l[t]), "prev": float(pr[t])}
+                    if t in l.index: prices[t] = {"cur": float(l[t]), "prev": float(p[t])}
         except: pass
-    return p
+    return prices
 
+# Calculs Live
 df = st.session_state['portfolio_df'].copy()
 market = get_prices(df['Ticker'].unique())
 
@@ -206,75 +164,132 @@ df['Perf%'] = df.apply(lambda x: ((x['Prix']-x['PRU'])/x['PRU']*100) if x['PRU']
 val_btc = df[df['Ticker'].str.contains("BTC")]['Valo'].sum()
 val_pea = df[~df['Ticker'].str.contains("BTC")]['Valo'].sum()
 total_pf = df['Valo'].sum()
+total_pv = df['PV'].sum()
 cash_total = df[df['Ticker']=="CASH"]['Valo'].sum()
 investi_titres = df[df['Ticker']!="CASH"]['Investi'].sum()
-total_pv = total_pf - (investi_titres + cash_total)
 
-# --- 5. INTERFACE ---
+# --- 5. OPÉRATIONS ---
+def op_cash(amount):
+    df = st.session_state['portfolio_df']
+    mask = df['Ticker'] == 'CASH'
+    if not mask.any():
+         new_cash = pd.DataFrame([{"Ticker": "CASH", "Nom": "Liquidités", "Type": "Cash", "Quantité": 0.0, "PRU": 1.0}])
+         df = pd.concat([df, new_cash], ignore_index=True)
+         mask = df['Ticker'] == 'CASH'
+    current = df.loc[mask, 'Quantité'].values[0]
+    df.loc[mask, 'Quantité'] = current + amount
+    st.session_state['portfolio_df'] = df
+    save_portfolio()
 
+def op_trade(sens, tick, q, p, nom=""):
+    df = st.session_state['portfolio_df']
+    if tick not in df['Ticker'].values:
+        if sens=="Vente": return False, "Inconnu"
+        new_row = pd.DataFrame([{"Ticker": tick, "Nom": nom, "Type": "Action", "Quantité": 0.0, "PRU": 0.0}])
+        df = pd.concat([df, new_row], ignore_index=True)
+    
+    mask_a = df['Ticker'] == tick
+    mask_c = df['Ticker'] == 'CASH'
+    cash = df.loc[mask_c, 'Quantité'].values[0]
+    cur_q = df.loc[mask_a, 'Quantité'].values[0]
+    cur_p = df.loc[mask_a, 'PRU'].values[0]
+    tot = q*p
+    
+    if sens=="Achat":
+        if cash < tot: return False, "Cash manquant"
+        new_q = cur_q + q
+        new_p = ((cur_q*cur_p)+tot)/new_q
+        df.loc[mask_a, 'Quantité'] = new_q
+        df.loc[mask_a, 'PRU'] = new_p
+        df.loc[mask_c, 'Quantité'] = cash - tot
+    elif sens=="Vente":
+        if cur_q < q: return False, "Qté insuffisante"
+        df.loc[mask_a, 'Quantité'] = cur_q - q
+        df.loc[mask_c, 'Quantité'] = cash + tot
+        
+    st.session_state['portfolio_df'] = df
+    save_portfolio()
+    return True, "OK"
+
+# --- 6. INTERFACE ---
 st.title("Gestion Patrimoniale Expert")
-st.caption(f"Valo Live : {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"Live : {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 k1, k2, k3, k4 = st.columns(4)
-k1.metric("Total Patrimoine", f"{total_pf:,.2f} €")
-k2.metric("Dont PEA", f"{val_pea:,.2f} €")
-k3.metric("Dont Crypto", f"{val_btc:,.2f} €")
-k4.metric("Plus-Value Totale", f"{total_pv:+,.2f} €")
+k1.metric("Total", f"{total_pf:,.2f} €")
+k2.metric("PEA", f"{val_pea:,.2f} €")
+k3.metric("BTC", f"{val_btc:,.2f} €")
+k4.metric("PV Latente", f"{total_pv:+,.2f} €")
 
 st.markdown("---")
 
 with st.sidebar:
-    st.header("Guichet Unique")
+    st.header("Guichet")
     with st.expander("Opérations", expanded=True):
         typ = st.selectbox("Type", ["Apport Cash", "Achat", "Vente"])
         if typ == "Apport Cash":
-            v = st.number_input("Montant", step=100.0)
-            if st.button("Valider"): operation_tresorerie(v); st.rerun()
+            mnt = st.number_input("Montant", step=100.0)
+            if st.button("Valider"): op_cash(mnt); st.rerun()
         else:
             tk = st.selectbox("Actif", [t for t in df['Ticker'].unique() if t!="CASH"])
-            c1,c2 = st.columns(2)
-            q = c1.number_input("Qte", 0.01)
+            c1, c2 = st.columns(2)
+            q = c1.number_input("Qté", 0.01)
             p = c2.number_input("Prix", 0.01)
             if st.button("Valider"): 
-                ok, m = operation_trading(typ, tk, q, p)
+                ok, m = op_trade(typ, tk, q, p)
                 if ok: st.success(m); st.rerun()
-    
+                else: st.error(m)
     st.markdown("---")
-    if st.button("💾 Sauvegarder État (Format Historique)"):
-        res = add_history_point(total_pf, val_pea, val_btc, total_pv)
-        if res: st.success("Ligne ajoutée au fichier historique !")
-        else: st.warning("Ligne déjà présente pour aujourd'hui.")
+    if st.button("💾 Sauvegarder Point Historique"):
+        if add_history_point(total_pf, val_pea, val_btc, total_pv): st.success("Sauvegardé")
+        else: st.warning("Déjà fait ajd")
         st.rerun()
 
-tab1, tab2, tab3 = st.tabs(["📋 Positions", "📈 Historique", "🔮 Projection"])
+tab1, tab2, tab3 = st.tabs(["Positions", "Historique", "Projection"])
 
 with tab1:
-    st.dataframe(df[['Nom', 'Quantité', 'PRU', 'Prix', 'Valo', 'Perf%']], 
-                 column_config={"Perf%": st.column_config.ProgressColumn(min_value=-30, max_value=30, format="%.2f %%")},
-                 use_container_width=True, hide_index=True)
+    st.dataframe(df[['Nom','Quantité','PRU','Prix','Valo','Perf%']], hide_index=True, use_container_width=True)
 
 with tab2:
-    st.subheader("Trajectoire Patrimoniale")
+    # PREPARATION GRAPHIQUE SÉCURISÉE
     if not df_history_static.empty:
-        fig = px.area(df_history_static, x='Date', y='Total', title="Évolution Valeur Totale")
-        fig.update_traces(line_color='#0f172a', fill_color='rgba(15, 23, 42, 0.1)')
-        fig.update_layout(template="simple_white")
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(df_history_static.sort_values('Date', ascending=False).head(5), use_container_width=True)
+        # On crée un DF propre pour le graph
+        df_graph = df_history_static.copy()
+        
+        # Ajout point live
+        live_row = pd.DataFrame([{
+            "Date": datetime.now(),
+            "Total": total_pf, "PEA": val_pea, "BTC": val_btc
+        }])
+        
+        # Alignement des colonnes pour éviter erreur concat
+        cols_communes = ["Date", "Total", "PEA", "BTC"]
+        try:
+            df_final = pd.concat([df_graph[cols_communes], live_row[cols_communes]], ignore_index=True)
+            
+            # LE GRAPHIQUE QUI PLANTAIT AVANT
+            fig = px.area(df_final, x='Date', y='Total', title="Trajectoire Totale")
+            # Cette ligne ne plantera plus car df_final contient des nombres (float) et non des strings
+            fig.update_traces(line_color='#0f172a', fill_color='rgba(15, 23, 42, 0.1)')
+            fig.update_layout(template="simple_white")
+            st.plotly_chart(fig, use_container_width=True)
+            
+            st.dataframe(df_graph.sort_values('Date', ascending=False).head(5), use_container_width=True)
+        except Exception as e:
+            st.error(f"Erreur construction graphique : {e}")
     else:
-        st.info("Fichier historique vide ou format incorrect. Vérifiez les points-virgules.")
+        st.info("Historique vide ou illisible.")
 
 with tab3:
-    st.subheader("Projection")
-    col_in, col_out = st.columns([1, 2])
-    with col_in:
-        add = st.number_input("Apport/mois (€)", 500)
-        rate = st.slider("Rendement (%)", 2.0, 12.0, 8.0)
+    col1, col2 = st.columns([1,2])
+    with col1:
+        add = st.number_input("Apport/mois", 500)
+        r = st.slider("Rendement %", 2.0, 12.0, 8.0)
         y = st.slider("Années", 5, 30, 15)
-    with col_out:
+    with col2:
         res = []
-        cap = total_pf
+        c = total_pf
         for i in range(1, y+1):
-            cap = cap * (1 + rate/100) + (add*12)
-            res.append({"Année": datetime.now().year+i, "Capital": cap})
+            c = c*(1+r/100) + (add*12)
+            res.append({"Année": datetime.now().year+i, "Capital": c})
         st.plotly_chart(px.area(pd.DataFrame(res), x="Année", y="Capital", template="simple_white"), use_container_width=True)
