@@ -265,14 +265,14 @@ df['Var_Jour'] = df['Valo'] - (df['Quantité'] * df['Prev'])
 
 @st.cache_data(ttl=3600)
 def get_market_monitor():
-    # Mapping : Nom affiché -> Ticker Yahoo Finance
+    # Liste précise des Tickers (Yahoo Finance)
     targets = {
-        "INDEX CBOE:VIX": "^VIX",
+        "Volatilité (VIX)": "^VIX",
         "CAC 40": "^FCHI",
         "S&P 500": "^GSPC",
-        "ETF MSCI World": "CW8.PA",
-        "Emerging Market": "PAEEM.PA",
-        "MSCI Europe": "PCEU.PA",
+        "MSCI World (CW8)": "CW8.PA",
+        "Emerging (PAEEM)": "PAEEM.PA",
+        "MSCI Europe (PCEU)": "PCEU.PA",
         "Euro Stoxx 50": "^STOXX50E",
         "Emerging ex Egypt": "PLEM.PA"
     }
@@ -280,47 +280,48 @@ def get_market_monitor():
     data = []
     
     try:
-        # Téléchargement groupé (plus rapide)
         tickers_list = list(targets.values())
-        # On prend 3 mois pour avoir assez d'historique pour la volatilité et le 1 mois glissant
+        # On télécharge 3 mois pour assurer le calcul du mois glissant
         hist = yf.download(tickers_list, period="3mo", progress=False)['Close']
         
         for name, ticker in targets.items():
             if ticker in hist.columns:
+                # On nettoie les données vides
                 series = hist[ticker].dropna()
-                if len(series) > 22:
-                    current = series.iloc[-1]
-                    prev_day = series.iloc[-2]
-                    # Environ 22 jours de bourse pour 1 mois
-                    prev_month = series.iloc[-22] if len(series) >= 22 else series.iloc[0]
+                
+                if len(series) >= 22: # Il faut au moins 1 mois de data
+                    current_price = series.iloc[-1] # Prix de clôture (ou live différé)
+                    prev_close = series.iloc[-2]    # Veille
+                    month_ago = series.iloc[-22]    # Il y a ~21-22 jours de bourse dans 1 mois
                     
-                    # Calculs
-                    perf_d = (current - prev_day) / prev_day
-                    perf_m = (current - prev_month) / prev_month
+                    # 1. Perf Jour
+                    perf_day = (current_price - prev_close) / prev_close
                     
-                    # Volatilité (Annualisée sur les 30 derniers jours)
+                    # 2. Perf 1 Mois
+                    perf_month = (current_price - month_ago) / month_ago
+                    
+                    # 3. Volatilité (Sur 30 jours glissants annualisée)
                     daily_ret = series.pct_change().tail(30)
                     volatility = daily_ret.std() * (252**0.5)
                     
-                    # Cas VIX (C'est déjà un indice de volatilité, pas un prix d'actif)
+                    # Cas particulier VIX : On n'affiche pas de volatilité d'une volatilité
                     if ticker == "^VIX":
-                        perf_m = (current - prev_month) / prev_month # Variation du stress
-                        volatility = current # On affiche le niveau du VIX directement dans la colonne volatilité
-                    
+                        volatility = None 
+
                     data.append({
                         "Indice": name,
-                        "Ticker": ticker, # Pour info
-                        "Prix actuel": current,
-                        "Perf. du Jour": perf_d,
-                        "Perf 1 Mois": perf_m,
+                        "Prix actuel": current_price,
+                        "Perf. du Jour": perf_day,
+                        "Perf 1 Mois": perf_month,
                         "Volatilité": volatility
                     })
             else:
-                # Gestion des erreurs (Si Yahoo ne trouve pas, on met des 0 ou N/A)
-                data.append({"Indice": name, "Prix actuel": 0, "Perf. du Jour": 0, "Perf 1 Mois": 0, "Volatilité": 0})
-
+                # Si ticker non trouvé
+                data.append({"Indice": name, "Prix actuel": 0.0, "Perf. du Jour": 0.0, "Perf 1 Mois": 0.0, "Volatilité": 0.0})
+                
     except Exception as e:
-        st.error(f"Erreur data marchés : {e}")
+        st.error(f"Erreur flux marché : {e}")
+        return pd.DataFrame()
         
     return pd.DataFrame(data)
 
@@ -511,7 +512,8 @@ with tab2:
                 st.plotly_chart(fig_b, use_container_width=True)
         except: pass
     else: st.info("Pas d'historique.")
-# --- MONITOR DE MARCHÉ (TABLEAU SIMPLE) ---
+with tab2:
+    # --- MONITOR DE MARCHÉ ---
     st.subheader("🌍 Marchés & Indices")
     df_market = get_market_monitor()
     
@@ -521,31 +523,34 @@ with tab2:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "Indice": st.column_config.TextColumn("Indice", width="medium"),
-                "Ticker": st.column_config.TextColumn("Ticker", width="small"),
-                "Prix actuel": st.column_config.NumberColumn("Prix", format="%.2f"),
+                "Indice": st.column_config.TextColumn("Actif", width="medium"),
                 
-                # ICI : Modification demandée -> Plus de jauge, juste le %
+                "Prix actuel": st.column_config.NumberColumn(
+                    "Prix", 
+                    format="%.2f"
+                ),
+                
                 "Perf. du Jour": st.column_config.NumberColumn(
                     "Perf. Jour", 
-                    format="%.2f %%" # Affiche le % simple
+                    format="%.2f %%" # Affichage % simple
                 ),
+                
                 "Perf 1 Mois": st.column_config.NumberColumn(
                     "Perf. 1 Mois", 
-                    format="%.2f %%"
+                    format="%.2f %%" # Affichage % simple
                 ),
+                
                 "Volatilité": st.column_config.NumberColumn(
                     "Volatilité (An)", 
-                    format="%.2f %%",
-                    help="Pour le VIX, c'est la valeur de l'indice."
+                    format="%.1f %%"
                 )
             }
         )
     else:
-        st.info("Chargement des données boursières...")
+        st.info("Chargement des données mondiales...")
 
     st.markdown("---")
-
+    
 with tab3:
     c_in, c_out = st.columns([1,3])
     with c_in:
