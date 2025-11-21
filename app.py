@@ -8,121 +8,130 @@ import os
 import io
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Holographic Estate", layout="wide", page_icon="💎")
+st.set_page_config(page_title="Liquid Estate", layout="wide", page_icon="💧")
 
-# --- 2. DESIGN SYSTEM "HOLOGRAPHIC LIQUID" (CSS AVANCÉ) ---
+# --- 2. DESIGN SYSTEM "APPLE LIQUID GLASS" ---
 st.markdown("""
 <style>
-    /* IMPORT POLICE GOOGLE */
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+    /* IMPORT POLICE */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap');
 
-    /* FOND FLUIDE ANIMÉ (Mesh Gradient) */
+    /* FOND D'ÉCRAN (Celui de votre exemple) */
     .stApp {
-        background-color: #f8fafc;
-        background-image: 
-            radial-gradient(at 0% 0%, hsla(253,16%,90%,1) 0, transparent 50%), 
-            radial-gradient(at 50% 0%, hsla(225,39%,90%,1) 0, transparent 50%), 
-            radial-gradient(at 100% 0%, hsla(339,49%,90%,1) 0, transparent 50%),
-            radial-gradient(at 0% 100%, hsla(280,100%,93%,1) 0, transparent 50%),
-            radial-gradient(at 100% 100%, hsla(180,100%,90%,1) 0, transparent 50%);
-        font-family: 'Outfit', sans-serif;
+        background-image: url(https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=3764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D);
+        background-size: cover;
+        background-attachment: fixed;
+        background-position: center;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* LE STYLE LIQUID GLASS (Adaptation de votre CSS) */
+    div[data-testid="stMetric"], 
+    div[data-testid="stDataFrame"], 
+    div.stPlotlyChart, 
+    div.stForm,
+    div.stExpander {
+        /* Fond semi-transparent blanc */
+        background-color: rgba(255, 255, 255, 0.35) !important; 
+        
+        /* Flou d'arrière-plan (Frosted effect) */
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        
+        /* Arrondis prononcés */
+        border-radius: 20px;
+        
+        /* L'effet "Liquide" grâce aux ombres internes (Inset) */
+        box-shadow: 
+            0 6px 6px rgba(0, 0, 0, 0.1), /* Ombre portée douce */
+            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.6), /* Reflet haut gauche */
+            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.3); /* Reflet bas droite */
+            
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        padding: 20px !important;
+        transition: transform 0.2s;
+    }
+
+    /* Effet de survol (Légère lévitation) */
+    div[data-testid="stMetric"]:hover, div.stPlotlyChart:hover {
+        transform: translateY(-4px);
+        background-color: rgba(255, 255, 255, 0.45) !important;
+        box-shadow: 
+            0 15px 30px rgba(0, 0, 0, 0.15),
+            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.8), 
+            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.4);
+    }
+
+    /* TYPOGRAPHIE LISIBLE (Noir profond pour contraste sur le verre) */
+    h1, h2, h3, h4, p, label, .stMarkdown {
+        color: #0f172a !important;
+        text-shadow: 0 1px 1px rgba(255,255,255,0.8); /* Petit halo blanc pour lisibilité */
+    }
+    
+    h1 {
+        font-weight: 800;
+        letter-spacing: -1px;
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(5px);
+        border-radius: 15px;
+        padding: 10px 20px;
+        display: inline-block;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    /* CHIFFRES DES MÉTRIQUES */
+    div[data-testid="stMetricValue"] {
+        font-size: 28px;
+        font-weight: 700;
         color: #1e293b;
     }
-
-    /* LE VERRE LIQUIDE (Holographic Cards) */
-    /* S'applique aux Métriques, Tableaux, Graphiques */
-    div[data-testid="stMetric"], div[data-testid="stDataFrame"], div.stPlotlyChart, div.stForm {
-        background: rgba(255, 255, 255, 0.45); /* Plus transparent */
-        backdrop-filter: blur(24px); /* Flou intense */
-        -webkit-backdrop-filter: blur(24px);
-        border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.9); /* Bordure blanche éclatante */
-        box-shadow: 
-            0 4px 30px rgba(0, 0, 0, 0.05), /* Ombre douce */
-            inset 0 0 20px rgba(255, 255, 255, 0.6); /* Reflet interne (Glass effect) */
-        padding: 20px !important;
-        transition: all 0.3s ease;
-    }
-
-    /* Effet de survol (Levitation) */
-    div[data-testid="stMetric"]:hover, div.stPlotlyChart:hover {
-        transform: translateY(-5px) scale(1.01);
-        box-shadow: 0 20px 40px rgba(31, 38, 135, 0.15);
-        border: 1px solid rgba(255, 255, 255, 1);
-        background: rgba(255, 255, 255, 0.65);
-    }
-
-    /* TYPOGRAPHIE */
-    h1, h2, h3 {
-        color: #0f172a;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        text-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    
-    /* Métriques (Chiffres) */
-    div[data-testid="stMetricValue"] {
-        font-size: 32px;
-        background: -webkit-linear-gradient(45deg, #0f172a, #334155);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 700;
-    }
     div[data-testid="stMetricLabel"] {
-        font-size: 14px;
-        color: #64748b;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+        color: #475569;
+        font-weight: 600;
     }
 
-    /* SIDEBAR (Paneau de verre givré) */
+    /* SIDEBAR (Verre plus sombre pour contraste) */
     section[data-testid="stSidebar"] {
-        background-color: rgba(255, 255, 255, 0.3);
-        backdrop-filter: blur(30px);
-        border-right: 1px solid rgba(255, 255, 255, 0.8);
-        box-shadow: 5px 0 30px rgba(0,0,0,0.02);
+        background-color: rgba(240, 245, 255, 0.6);
+        backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(255, 255, 255, 0.5);
     }
 
-    /* ONGLETS FLOTTANTS */
+    /* ONGLETS */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 15px;
-        background-color: transparent;
+        gap: 10px;
+        background-color: rgba(255,255,255,0.2);
         padding: 10px;
-        margin-bottom: 20px;
+        border-radius: 20px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
         background-color: rgba(255, 255, 255, 0.4);
-        border-radius: 16px;
-        color: #475569;
-        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 15px;
+        border: none;
+        color: #334155;
         font-weight: 600;
-        backdrop-filter: blur(10px);
-        transition: all 0.2s;
-    }
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: rgba(255, 255, 255, 0.8);
+        box-shadow: inset 1px 1px 1px rgba(255,255,255,0.5);
     }
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        background-color: #ffffff;
         color: #0f172a;
-        border: 1px solid #ffffff;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
     
-    /* BOUTONS FLUIDES */
+    /* BOUTONS STYLE APPLE */
     div.stButton > button {
-        border-radius: 12px;
-        background: linear-gradient(90deg, #0f172a 0%, #334155 100%);
+        border-radius: 50px; /* Pill shape */
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
         border: none;
-        padding: 0.5rem 1rem;
+        font-weight: 600;
+        padding: 0.5rem 1.5rem;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
         transition: all 0.3s;
     }
     div.stButton > button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 5px 15px rgba(15, 23, 42, 0.2);
+        transform: scale(1.05);
+        box-shadow: 0 6px 15px rgba(37, 99, 235, 0.4);
     }
 
 </style>
@@ -143,11 +152,11 @@ INITIAL_PORTFOLIO = {
     "Ticker": ["ESE.PA", "DCAM.PA", "PUST.PA", "CL2.PA", "BTC-EUR", "CASH"],
     "Nom": ["BNP S&P 500", "Amundi World", "Lyxor Nasdaq", "Amundi USA x2", "Bitcoin", "Liquidités"],
     "Type": ["ETF Action", "ETF Action", "ETF Tech", "ETF Levier", "Crypto", "Cash"],
-    "Quantité": [141.0, 716.0, 55.0, 176.0, 0.01275433, 510.84], 
+    "Quantité": [141.0, 716.0, 55.0, 176.0, 0.01275433, 510.84],
     "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
 }
 
-# --- 4. LOGIQUE MÉTIER (IDENTIQUE) ---
+# --- 4. FONCTIONS ---
 
 def safe_float(x):
     if pd.isna(x) or x == "": return 0.0
@@ -167,7 +176,6 @@ def load_state():
         else:
             df = pd.DataFrame(INITIAL_PORTFOLIO)
             df.to_csv(FILE_PORTFOLIO, index=False, sep=';')
-        
         df['Quantité'] = df['Quantité'].apply(safe_float)
         df['PRU'] = df['PRU'].apply(safe_float)
         st.session_state['portfolio_df'] = df
@@ -192,7 +200,6 @@ def save_portfolio():
 
 def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
     df_hist = load_state()
-    
     if not df_hist.empty:
         last = df_hist.iloc[-1]
         prev_total = last.get('Total', 0)
@@ -323,10 +330,11 @@ def op_trade(sens, tick, q, p, nom=""):
     save_portfolio()
     return True, "Succès"
 
-# --- 6. INTERFACE LIQUID GLASS ---
+# --- 6. INTERFACE ---
 
-st.markdown("<h1 style='text-align: center; margin-bottom: 30px; font-weight: 300;'>HOLOGRAPHIC <span style='font-weight:700'>ESTATE</span></h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-bottom: 30px;'>💎 LIQUID ESTATE</h1>", unsafe_allow_html=True)
 
+# KPI
 MONTANT_INITIAL = 15450.00 
 DATE_DEBUT = datetime(2022, 1, 1)
 cash_dispo = df[df['Ticker']=='CASH']['Valo'].sum()
@@ -341,89 +349,64 @@ years = days_held / 365.25
 cagr = ((total_pf / MONTANT_INITIAL) ** (1/years) - 1) * 100 if years > 0 else 0
 rendement_annuel = perf_totale_pct / years if years > 0 else 0
 
-# --- BENTO GRID ---
 st.markdown("#### 🔭 Vue Satellite")
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Portefeuille Net", f"{total_pf:,.2f} €")
+c1.metric("Portefeuille Total", f"{total_pf:,.2f} €")
 c2.metric("Montant Initial", f"{MONTANT_INITIAL:,.2f} €")
-c3.metric("Trésorerie", f"{cash_dispo:,.2f} €", f"{(cash_dispo/total_pf)*100:.1f}%")
-c4.metric("Variation Jour", f"{volat_jour_live:+,.2f} €")
+c3.metric("Liquidités", f"{cash_dispo:,.2f} €")
+c4.metric("PV du Jour", f"{volat_jour_live:+,.2f} €")
 
 st.write("")
 
-st.markdown("#### 🚀 Performance")
+st.markdown("#### 🚀 Performance Actifs")
 c5, c6, c7, c8 = st.columns(4)
-c5.metric("Investi", f"{valo_investi:,.2f} €")
-c6.metric("Coût (PRU)", f"{cout_investi:,.2f} €")
-c7.metric("Perf. Actifs", f"{perf_actif_eur:+,.2f} €", f"{perf_actif_pct:+.2f} %")
-c8.metric("Perf. Totale", f"{perf_totale_eur:+,.2f} €", f"{perf_totale_pct:+.2f} %")
+c5.metric("Valorisation Investi", f"{valo_investi:,.2f} €")
+c6.metric("Montant Investi", f"{cout_investi:,.2f} €")
+c7.metric("Perf. Actif (€)", f"{perf_actif_eur:+,.2f} €")
+c8.metric("Perf. Actif (%)", f"{perf_actif_pct:+.2f} %")
 
 st.write("")
 
-col_kpi_time, col_graph_time = st.columns([1, 3])
-with col_kpi_time:
-    st.markdown("#### ⏳ Temps")
-    st.metric("Rendement/An", f"{rendement_annuel:.2f} %")
-    st.metric("CAGR", f"{cagr:.2f} %")
-
-with col_graph_time:
-    if not df_history_static.empty:
-        df_g = df_history_static.sort_values('Date').copy()
-        fig_mini = px.area(df_g, x='Date', y='Total', height=280)
-        fig_mini.update_layout(
-            margin=dict(l=0, r=0, t=0, b=0),
-            xaxis=dict(showgrid=False, title=None), 
-            yaxis=dict(showgrid=False, title=None, visible=False),
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            showlegend=False
-        )
-        fig_mini.update_traces(line_color='#0f172a', fillcolor='rgba(15, 23, 42, 0.05)')
-        st.plotly_chart(fig_mini, use_container_width=True)
+st.markdown("#### ⏱️ Performance Temporelle")
+c9, c10, c11, c12 = st.columns(4)
+c9.metric("Perf. Totale (€)", f"{perf_totale_eur:+,.2f} €")
+c10.metric("Perf. Totale (%)", f"{perf_totale_pct:+.2f} %")
+c11.metric("Rendement/An", f"{rendement_annuel:.2f} %")
+c12.metric("CAGR", f"{cagr:.2f} %")
 
 st.markdown("---")
 
-# --- SIDEBAR ---
 with st.sidebar:
-    st.header("🕹️ Centre de Contrôle")
-    
+    st.header("Opérations")
     with st.expander("💰 Trésorerie", expanded=True):
         mnt = st.number_input("Montant (€)", step=100.0)
         if st.button("Valider Virement", type="secondary", use_container_width=True):
             if mnt > 0: operation_tresorerie(mnt); st.success("OK"); st.rerun()
-
     st.write("")
-
     with st.expander("📈 Trading", expanded=True):
         sens = st.radio("Sens", ["Achat", "Vente"], horizontal=True)
         tickers = [t for t in df['Ticker'].unique() if t != "CASH"]
         mode = st.radio("Actif", ["Existant", "Nouveau"], horizontal=True, label_visibility="collapsed")
-        
         if mode == "Existant":
             tick = st.selectbox("Sélection", tickers)
             nom = ""
         else:
             tick = st.text_input("Symbole (ex: AI.PA)").upper()
             nom = st.text_input("Nom")
-            
         c1, c2 = st.columns(2)
         qty = c1.number_input("Qté", min_value=0.00000001, step=0.01, format="%.8f")
         price = c2.number_input("Prix", min_value=0.01, step=0.01, format="%.2f")
-        
         st.caption(f"Total: {qty*price:,.2f}€")
         if st.button("Confirmer", type="primary", use_container_width=True):
             ok, msg = op_trade(sens, tick, qty, price, nom)
             if ok: st.success(msg); st.rerun()
             else: st.error(msg)
-    
     st.markdown("---")
     if st.button("💾 Sauvegarder Historique"):
         succes, d = add_history_point(total_pf, val_pea, val_btc, total_pv, df)
-        if succes: 
-            st.success(f"Sauvegardé ! Delta : {d:+.2f} €")
-            import time; time.sleep(1); st.rerun()
+        if succes: st.success(f"Sauvegardé ! Delta : {d:+.2f} €"); import time; time.sleep(1); st.rerun()
         else: st.warning("Déjà fait aujourd'hui")
 
-# --- ONGLETS ---
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Positions", "📊 Benchmarks", "🔮 Projection", "🔧 Admin"])
 
 with tab1:
@@ -436,22 +419,17 @@ with tab1:
 with tab2:
     if not df_history_static.empty:
         df_g = df_history_static.sort_values('Date').copy()
-        
         st.subheader("Performance vs S&P 500 (Base 100)")
         try:
             x_axis = df_g['Date']
-            # Récupération sécurisée
             idx_cols = [c for c in df_g.columns if "Index100" in c]
             if len(idx_cols) >= 2:
-                # On prend les deux premiers trouvés
                 y_pf = df_g[idx_cols[0]]
                 y_ese = df_g[idx_cols[1]]
-                
                 fig_bench = go.Figure()
                 fig_bench.add_trace(go.Scatter(x=x_axis, y=y_pf, mode='lines', name='Portefeuille', line=dict(color='#0f172a', width=3)))
                 fig_bench.add_trace(go.Scatter(x=x_axis, y=y_ese, mode='lines', name='S&P 500', line=dict(color='#94a3b8', width=2, dash='dot')))
-                fig_bench.update_layout(template="simple_white", hovermode="x unified", 
-                                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0,r=0,t=0,b=0))
+                fig_bench.update_layout(template="simple_white", hovermode="x unified", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0,r=0,t=0,b=0))
                 st.plotly_chart(fig_bench, use_container_width=True)
         except: st.error("Données indices manquantes")
 
@@ -461,15 +439,13 @@ with tab2:
             if 'Delta' in df_g.columns:
                 colors = ['#10b981' if v >= 0 else '#ef4444' for v in df_g['Delta']]
                 fig_vol = go.Figure(go.Bar(x=df_g['Date'], y=df_g['Delta'], marker_color=colors))
-                fig_vol.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), showlegend=False,
-                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                fig_vol.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_vol, use_container_width=True)
         with c2:
             st.subheader("Plus-Value Cumulée")
             fig_pv = px.area(df_g, x='Date', y='Plus-value')
             fig_pv.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.1)')
-            fig_pv.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0),
-                               paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_pv.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_pv, use_container_width=True)
     else: st.info("Historique vide.")
 
@@ -494,7 +470,6 @@ with tab3:
 with tab4:
     st.warning("Zone Admin.")
     file_choice = st.radio("Fichier", ["Portefeuille", "Historique"], horizontal=True)
-    
     if file_choice == "Portefeuille":
         edited_df = st.data_editor(df, num_rows="dynamic")
         if st.button("💾 Sauvegarder Portefeuille"):
