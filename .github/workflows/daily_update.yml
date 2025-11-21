@@ -1,0 +1,36 @@
+name: Mise à jour Patrimoine Minuit
+
+on:
+  schedule:
+    # 23:00 UTC = 00:00 France (Hiver) / 01:00 France (Été)
+    - cron: '0 23 * * *'
+  workflow_dispatch: # Permet de le lancer manuellement pour tester
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Donne le droit au robot d'écrire dans le CSV
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v3
+
+      - name: Installer Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Installer les outils
+        run: pip install pandas yfinance
+
+      - name: Lancer le Robot
+        run: python scheduler.py
+
+      - name: Sauvegarder le CSV sur GitHub
+        run: |
+          git config --global user.name 'Robot Patrimoine'
+          git config --global user.email 'robot@patrimoine.com'
+          git add historique.csv
+          git commit -m "Mise à jour auto minuit" || echo "Rien à changer"
+          git push
