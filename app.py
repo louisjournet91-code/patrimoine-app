@@ -401,9 +401,6 @@ with tab3:
             c = c*(1+r/100) + (add*12)
             res.append({"Année": datetime.now().year+i, "Capital": c})
         st.plotly_chart(px.area(pd.DataFrame(res), x="Année", y="Capital", template="simple_white"), use_container_width=True)
-# Ajoutez un 4ème onglet "Admin"
-tab1, tab2, tab3, tab4 = st.tabs(["Positions", "Historique", "Projection", "🔧 Correction"])
-
 with tab4:
     st.warning("Zone de correction manuelle. Modifiez les valeurs directement dans le tableau et cliquez sur Sauvegarder.")
     
