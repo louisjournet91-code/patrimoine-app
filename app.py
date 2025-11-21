@@ -344,7 +344,7 @@ if st.button("💾 Sauvegarder Historique"):
         else: 
             st.warning("Déjà fait aujourd'hui")
 
-tab1, tab2, tab3 = st.tabs(["Positions", "Analyse & Benchmarks", "Projection"])
+tab1, tab2, tab3, tab4 = st.tabs(["Positions", "Historique", "Projection", "🔧 Correction"])
 
 with tab1:
     st.dataframe(df[['Nom','Quantité','PRU','Prix','Valo','Var_Jour','Perf%']], hide_index=True, use_container_width=True,
