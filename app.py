@@ -60,16 +60,16 @@ st.markdown("""
         background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-
-    /* COMPOSANTS UI */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px; background: rgba(255,255,255,0.4); padding: 8px; border-radius: 20px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 40px; border-radius: 12px; border: none; color: #64748b; font-weight: 600;
-    }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background: #ffffff; color: #0f172a; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    
+    /* Sections Titres */
+    .section-header {
+        margin-top: 40px;
+        margin-bottom: 20px;
+        font-size: 24px;
+        font-weight: 700;
+        color: #334155;
+        border-bottom: 2px solid rgba(0,0,0,0.05);
+        padding-bottom: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -203,20 +203,16 @@ else:
     delta_day = df_pf['Var_24h_€'].sum()
     delta_pct = 0.0
 
-# --- CALCUL CAGR (Correction) ---
-# Paramètres fixes de votre début d'aventure
+# --- CALCUL CAGR (Fixe) ---
 CAPITAL_INITIAL = 15450.00  
 DATE_DEBUT = datetime(2022, 1, 1) 
-
-# Calcul mathématique
 annees_detention = (datetime.now() - DATE_DEBUT).days / 365.25
 if annees_detention > 0 and CAPITAL_INITIAL > 0:
-    # Formule : (Valeur Finale / Valeur Initiale)^(1/Années) - 1
     cagr_val = ((TOTAL_ACTUEL / CAPITAL_INITIAL) ** (1 / annees_detention) - 1) * 100
 else:
     cagr_val = 0.0
 
-# --- 5. INTERFACE ---
+# --- 5. INTERFACE UTILISATEUR ---
 
 # Header
 st.markdown("## 🏛️ Ultimate Liquid Estate")
@@ -237,114 +233,109 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Bento Grid
+# Bento Grid (KPIs)
 col1, col2, col3 = st.columns(3)
 col1.metric("Cash Disponible", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc.")
 col2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%")
 col3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 
+# --- SECTION 1 : PORTEFEUILLE ---
+st.markdown("<div class='section-header'>📋 Détail du Portefeuille</div>", unsafe_allow_html=True)
+
+st.dataframe(
+    df_pf[['Nom', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_24h_€']],
+    hide_index=True,
+    use_container_width=True,
+    column_config={
+        "Nom": st.column_config.TextColumn("Actif", width="medium"),
+        "Valo": st.column_config.NumberColumn("Valorisation", format="%.2f €"),
+        "PRU": st.column_config.NumberColumn("Prix Revient", format="%.2f €"),
+        "Prix_Actuel": st.column_config.NumberColumn("Cours", format="%.2f €"),
+        "Perf_%": st.column_config.ProgressColumn("Perf %", format="%.2f %%", min_value=-20, max_value=20),
+        "Var_24h_€": st.column_config.NumberColumn("24h", format="%+.2f €")
+    }
+)
+
 st.markdown("---")
 
-# Navigation
-tab_pf, tab_chart, tab_sim = st.tabs(["📋 Portefeuille", "📊 Analyse", "🔮 Projection"])
+# --- SECTION 2 : ANALYSE GRAPHIQUE ---
+st.markdown("<div class='section-header'>📊 Analyse & Marché</div>", unsafe_allow_html=True)
 
-with tab_pf:
-    st.dataframe(
-        df_pf[['Nom', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_24h_€']],
-        hide_index=True,
-        use_container_width=True,
-        column_config={
-            "Nom": st.column_config.TextColumn("Actif", width="medium"),
-            "Valo": st.column_config.NumberColumn("Valorisation", format="%.2f €"),
-            "PRU": st.column_config.NumberColumn("Prix Revient", format="%.2f €"),
-            "Prix_Actuel": st.column_config.NumberColumn("Cours", format="%.2f €"),
-            "Perf_%": st.column_config.ProgressColumn("Perf %", format="%.2f %%", min_value=-20, max_value=20),
-            "Var_24h_€": st.column_config.NumberColumn("24h", format="%+.2f €")
-        }
+if not df_hist.empty:
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        st.caption("Trajectoire Patrimoniale")
+        fig = px.area(df_hist, x='Date', y='Total', line_shape='spline')
+        fig.update_layout(template="simple_white", margin=dict(l=0,r=0,t=10,b=0), height=350)
+        fig.update_traces(line_color='#2563eb', fillcolor='rgba(37, 99, 235, 0.1)')
+        st.plotly_chart(fig, use_container_width=True)
+        
+    with c2:
+        st.caption("Benchmark (Base 100)")
+        if 'PF_Index100' in df_hist.columns and 'ESE_Index100' in df_hist.columns:
+            fig_b = go.Figure()
+            fig_b.add_trace(go.Scatter(x=df_hist['Date'], y=df_hist['PF_Index100'], name="Moi", line=dict(color='#0f172a', width=2)))
+            fig_b.add_trace(go.Scatter(x=df_hist['Date'], y=df_hist['ESE_Index100'], name="S&P500", line=dict(color='#94a3b8', dash='dot')))
+            fig_b.update_layout(template="simple_white", margin=dict(l=0,r=0,t=10,b=0), height=350, legend=dict(orientation="h", y=1.1, x=0))
+            st.plotly_chart(fig_b, use_container_width=True)
+else:
+    st.info("Attente de la première exécution du Robot de nuit...")
+
+# Indices Marché
+st.caption("Pulsation Mondiale")
+df_m = get_market_indices()
+if not df_m.empty:
+    cols = st.columns(len(df_m))
+    for i, row in df_m.iterrows():
+        with cols[i]:
+            st.metric(row['Indice'], f"{row['Prix']:.2f}", f"{row['24h %']:+.2f}%")
+
+st.markdown("---")
+
+# --- SECTION 3 : PROJECTION ---
+st.markdown("<div class='section-header'>🔮 Projection & Rente</div>", unsafe_allow_html=True)
+
+col_sim_input, col_sim_graph = st.columns([1, 3])
+
+with col_sim_input:
+    with st.expander("Paramètres de Simulation", expanded=True):
+        apport_mensuel = st.number_input("Apport Mensuel (€)", value=1000, step=100, key="sim_add")
+        taux_annuel = st.slider("Rendement Annuel (%)", 2.0, 15.0, 8.0, 0.5, key="sim_rate")
+        duree_ans = st.slider("Horizon (Années)", 5, 30, 15, key="sim_years")
+        
+        st.markdown(f"""
+        <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.5); border-radius: 12px;">
+            <small>Capital Départ</small><br>
+            <strong>{TOTAL_ACTUEL:,.0f} €</strong>
+        </div>
+        """, unsafe_allow_html=True)
+
+with col_sim_graph:
+    # Calcul Simulation
+    annees = range(datetime.now().year, datetime.now().year + duree_ans + 1)
+    capital = [TOTAL_ACTUEL]
+    for i in range(duree_ans):
+        nouveau_montant = (capital[-1] + (apport_mensuel * 12)) * (1 + taux_annuel/100)
+        capital.append(nouveau_montant)
+    
+    df_sim = pd.DataFrame({"Année": annees, "Capital": capital})
+    
+    # Graphique Projection
+    fig_sim = px.area(df_sim, x="Année", y="Capital")
+    fig_sim.update_layout(
+        template="simple_white",
+        height=400,
+        margin=dict(l=0,r=0,t=20,b=0),
+        hovermode="x unified"
     )
-
-with tab_chart:
-    if not df_hist.empty:
-        c1, c2 = st.columns(2)
-        with c1:
-            st.caption("Évolution Patrimoniale")
-            fig = px.area(df_hist, x='Date', y='Total', line_shape='spline')
-            fig.update_layout(template="simple_white", margin=dict(l=0,r=0,t=10,b=0), height=350)
-            fig.update_traces(line_color='#2563eb', fillcolor='rgba(37, 99, 235, 0.1)')
-            st.plotly_chart(fig, use_container_width=True)
-        with c2:
-            st.caption("Benchmark (Base 100)")
-            # Comparaison Index vs ESE (S&P500)
-            if 'PF_Index100' in df_hist.columns and 'ESE_Index100' in df_hist.columns:
-                fig_b = go.Figure()
-                fig_b.add_trace(go.Scatter(x=df_hist['Date'], y=df_hist['PF_Index100'], name="Moi", line=dict(color='#0f172a', width=2)))
-                fig_b.add_trace(go.Scatter(x=df_hist['Date'], y=df_hist['ESE_Index100'], name="S&P500", line=dict(color='#94a3b8', dash='dot')))
-                fig_b.update_layout(template="simple_white", margin=dict(l=0,r=0,t=10,b=0), height=350, legend=dict(orientation="h", y=1.1))
-                st.plotly_chart(fig_b, use_container_width=True)
-    else:
-        st.info("Attente de la première exécution du Robot de nuit...")
-
-    # Indices Marché
-    st.subheader("Pulsation du Marché")
-    df_m = get_market_indices()
-    if not df_m.empty:
-        cols = st.columns(len(df_m))
-        for i, row in df_m.iterrows():
-            with cols[i]:
-                st.metric(row['Indice'], f"{row['Prix']:.2f}", f"{row['24h %']:+.2f}%")
-
-with tab_sim:
-    st.subheader("Simulateur de Liberté Financière")
+    fig_sim.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.15)')
+    fig_sim.add_hline(y=1000000, line_dash="dot", line_color="#cbd5e1", annotation_text="1M€ (Liberté)", annotation_position="top left")
     
-    # Layout corrigé pour éviter le bug de rechargement
-    col_sim_input, col_sim_graph = st.columns([1, 3])
+    st.plotly_chart(fig_sim, use_container_width=True)
     
-    with col_sim_input:
-        with st.expander("Paramètres", expanded=True):
-            # Clés uniques pour éviter les conflits d'état Streamlit
-            apport_mensuel = st.number_input("Apport Mensuel (€)", value=1000, step=100, key="sim_add")
-            taux_annuel = st.slider("Rendement Annuel (%)", 2.0, 15.0, 8.0, 0.5, key="sim_rate")
-            duree_ans = st.slider("Horizon (Années)", 5, 30, 15, key="sim_years")
-            
-            st.markdown(f"""
-            <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.5); border-radius: 12px;">
-                <small>Capital Départ</small><br>
-                <strong>{TOTAL_ACTUEL:,.0f} €</strong>
-            </div>
-            """, unsafe_allow_html=True)
-
-    with col_sim_graph:
-        # Logique de calcul isolée et robuste
-        annees = range(datetime.now().year, datetime.now().year + duree_ans + 1)
-        capital = [TOTAL_ACTUEL]
-        
-        for i in range(duree_ans):
-            # Formule intérêts composés avec apport mensuel
-            # Fin d'année = (Début + Apports) * Rendement
-            nouveau_montant = (capital[-1] + (apport_mensuel * 12)) * (1 + taux_annuel/100)
-            capital.append(nouveau_montant)
-        
-        df_sim = pd.DataFrame({"Année": annees, "Capital": capital})
-        
-        # Graphique Projection
-        fig_sim = px.area(df_sim, x="Année", y="Capital")
-        fig_sim.update_layout(
-            template="simple_white",
-            height=400,
-            margin=dict(l=0,r=0,t=20,b=0),
-            hovermode="x unified"
-        )
-        fig_sim.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.15)')
-        
-        # Ligne d'objectif (ex: 1 Million)
-        fig_sim.add_hline(y=1000000, line_dash="dot", line_color="#cbd5e1", annotation_text="1M€ (Freedom)", annotation_position="top left")
-        
-        st.plotly_chart(fig_sim, use_container_width=True)
-        
-        final_cap = capital[-1]
-        gain_total = final_cap - TOTAL_ACTUEL - (apport_mensuel * 12 * duree_ans)
-        
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Capital Final", f"{final_cap:,.0f} €")
-        k2.metric("Total Intérêts", f"{gain_total:,.0f} €", "Argent qui travaille")
-        k3.metric("Rente Mensuelle (4%)", f"{(final_cap * 0.04 / 12):,.0f} €", "Passive Income")
+    final_cap = capital[-1]
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Capital Final", f"{final_cap:,.0f} €")
+    k2.metric("Total Intérêts", f"{(final_cap - TOTAL_ACTUEL - (apport_mensuel * 12 * duree_ans)):,.0f} €")
+    k3.metric("Rente Mensuelle (4%)", f"{(final_cap * 0.04 / 12):,.0f} €", "Revenu Passif")
