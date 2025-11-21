@@ -13,22 +13,22 @@ st.set_page_config(page_title="Tableau de Bord", layout="wide", page_icon="💎"
 # --- 2. GESTION DU THÈME (DARK / LIGHT) ---
 with st.sidebar:
     st.header("⚙️ Préférences")
-    dark_mode = st.toggle("🌙 Mode Sombre", value=True) # Par défaut sombre pour l'effet "Premium"
-    st.caption("Tableau de Bord V.1.0")
+    dark_mode = st.toggle("🌙 Mode Sombre", value=True)
+    st.caption("Tableau de Bord V.1.1 (Glass Edition)")
 
 # Définition des palettes selon le mode
 if dark_mode:
     # --- THEME MIDNIGHT ONYX (SOMBRE) ---
     bg_color = "#0f172a"
     text_color = "#f8fafc"
-    card_bg = "rgba(30, 41, 59, 0.7)"
-    border_color = "rgba(255, 255, 255, 0.1)"
-    chart_line_color = "#38bdf8" # Cyan électrique
+    # MODIFICATION ICI : Transparence augmentée (0.7 -> 0.3)
+    card_bg = "rgba(30, 41, 59, 0.3)" 
+    border_color = "rgba(255, 255, 255, 0.05)" # Bordure plus subtile
+    chart_line_color = "#38bdf8"
     chart_fill_color = "rgba(56, 189, 248, 0.15)"
     metric_gradient = "linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)"
     
     css_theme = """
-    /* FOND SOMBRE PROFOND */
     .stApp {
         background-color: #020617;
         background-image: 
@@ -44,14 +44,14 @@ else:
     # --- THEME LIQUID DAYLIGHT (CLAIR) ---
     bg_color = "#f0f4f8"
     text_color = "#1e293b"
-    card_bg = "rgba(255, 255, 255, 0.6)"
-    border_color = "rgba(255, 255, 255, 0.8)"
-    chart_line_color = "#2563eb" # Bleu roi
+    # MODIFICATION ICI : Transparence augmentée (0.6 -> 0.3)
+    card_bg = "rgba(255, 255, 255, 0.3)"
+    border_color = "rgba(255, 255, 255, 0.4)"
+    chart_line_color = "#2563eb"
     chart_fill_color = "rgba(37, 99, 235, 0.1)"
     metric_gradient = "linear-gradient(135deg, #0f172a 0%, #334155 100%)"
     
     css_theme = """
-    /* FOND MAILLÉ CLAIR */
     .stApp {
         background-color: #f0f4f8;
         background-image: 
@@ -74,18 +74,34 @@ st.markdown(f"""
     {css_theme}
 
     /* --- STYLE GLASS UNIFIÉ --- */
+    /* Conteneurs standards (KPIs, Charts) */
     div[data-testid="stMetric"], 
-    div[data-testid="stDataFrame"], 
     div.stPlotlyChart, 
     div.stExpander {{
         background: {card_bg} !important;
-        backdrop-filter: blur(20px) saturate(180%);
-        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
         border-radius: 24px;
         border: 1px solid {border_color};
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
         padding: 24px !important;
         transition: transform 0.3s ease;
+    }}
+
+    /* SPÉCIFIQUE DATAFRAME : PLUS TRANSPARENT */
+    div[data-testid="stDataFrame"] {{
+        background: transparent !important; /* Fond totalement transparent */
+        border: none !important; /* Pas de bordure cadre */
+        box-shadow: none !important; /* Pas d'ombre pour effet "flottant" */
+    }}
+    
+    /* On force la transparence à l'intérieur du tableau */
+    div[data-testid="stDataFrame"] > div {{
+        background: {card_bg} !important;
+        border-radius: 24px;
+        backdrop-filter: blur(10px);
+        padding: 10px;
+        border: 1px solid {border_color};
     }}
 
     div[data-testid="stMetric"]:hover {{ transform: translateY(-5px); }}
@@ -102,7 +118,6 @@ st.markdown(f"""
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }}
     
-    /* COMPOSANTS UI */
     .section-header {{
         margin-top: 40px; margin-bottom: 20px; font-size: 24px; font-weight: 700;
         border-bottom: 2px solid {border_color}; padding-bottom: 10px;
@@ -115,7 +130,7 @@ st.markdown(f"""
 FILE_PORTFOLIO = 'portefeuille.csv'
 FILE_HISTORY = 'historique.csv'
 
-# Portefeuille par défaut (Sécurité démarrage)
+# Portefeuille par défaut
 INITIAL_PORTFOLIO = {
     "Ticker": ["ESE.PA", "CASH"],
     "Nom": ["S&P 500", "Liquidités"],
@@ -125,15 +140,12 @@ INITIAL_PORTFOLIO = {
 }
 
 def safe_float(x):
-    """Conversion blindée"""
     if pd.isna(x) or x == "": return 0.0
     s = str(x).strip().replace('"', '').replace('%', '').replace('€', '').replace(' ', '')
     try: return float(s.replace(',', '.'))
     except: return 0.0
 
 def load_data():
-    """Chargement unique des données (Read-Only)"""
-    # 1. Portefeuille
     if os.path.exists(FILE_PORTFOLIO):
         try:
             df = pd.read_csv(FILE_PORTFOLIO, sep=';', dtype=str)
@@ -142,21 +154,16 @@ def load_data():
     else:
         df = pd.DataFrame(INITIAL_PORTFOLIO)
 
-    # Nettoyage types
     for c in ['Quantité', 'PRU']:
         if c in df.columns: df[c] = df[c].apply(safe_float)
 
-    # 2. Historique
     hist_cols = ["Date", "Total", "Delta", "PF_Index100", "ESE_Index100"]
     if os.path.exists(FILE_HISTORY):
         try:
             df_h = pd.read_csv(FILE_HISTORY, sep=';', on_bad_lines='skip', engine='python')
             if df_h.shape[1] < 3: df_h = pd.read_csv(FILE_HISTORY, sep=',', on_bad_lines='skip')
-            
-            # Conversion numérique des colonnes critiques
             for c in df_h.columns:
                 if c != "Date": df_h[c] = df_h[c].apply(safe_float)
-            
             df_h['Date'] = pd.to_datetime(df_h['Date'], dayfirst=True, errors='coerce')
             df_h = df_h.dropna(subset=['Date']).sort_values('Date')
         except: df_h = pd.DataFrame(columns=hist_cols)
@@ -165,26 +172,19 @@ def load_data():
 
     return df, df_h
 
-@st.cache_data(ttl=300) # Cache 5 min
+@st.cache_data(ttl=300)
 def get_live_prices(tickers):
-    """Récupération Yahoo Finance"""
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
     real_ticks = [t for t in tickers if t != "CASH" and isinstance(t, str)]
-    
     if not real_ticks: return prices
-    
     try:
-        # Optimisation : Téléchargement groupé
         data = yf.download(real_ticks, period="5d", progress=False)
         if 'Close' in data:
             closes = data['Close']
-            # Gestion cas unique vs multiple
             if len(real_ticks) == 1:
-                 # Séries
                  if len(closes) >= 1:
                      prices[real_ticks[0]] = {"cur": float(closes.iloc[-1]), "prev": float(closes.iloc[-2]) if len(closes)>1 else float(closes.iloc[-1])}
             else:
-                # DataFrame
                 last_row = closes.iloc[-1]
                 prev_row = closes.iloc[-2] if len(closes) > 1 else last_row
                 for t in real_ticks:
@@ -195,7 +195,6 @@ def get_live_prices(tickers):
 
 @st.cache_data(ttl=3600)
 def get_market_indices():
-    """Surveillance Indices"""
     targets = {"S&P 500": "^GSPC", "CAC 40": "^FCHI", "Bitcoin": "BTC-EUR", "VIX": "^VIX"}
     res = []
     try:
@@ -214,12 +213,10 @@ def get_market_indices():
 df_pf, df_hist = load_data()
 prices = get_live_prices(df_pf['Ticker'].unique())
 
-# Application des prix
 df_pf['Prix_Actuel'] = df_pf['Ticker'].apply(lambda t: prices.get(t, {}).get('cur', 0.0) if t != "CASH" else 1.0)
-df_pf.loc[df_pf['Prix_Actuel'] == 0, 'Prix_Actuel'] = df_pf['PRU'] # Fallback
+df_pf.loc[df_pf['Prix_Actuel'] == 0, 'Prix_Actuel'] = df_pf['PRU']
 df_pf['Prev_Price'] = df_pf['Ticker'].apply(lambda t: prices.get(t, {}).get('prev', 0.0) if t != "CASH" else 1.0)
 
-# KPIs
 df_pf['Valo'] = df_pf['Quantité'] * df_pf['Prix_Actuel']
 df_pf['Investi'] = df_pf['Quantité'] * df_pf['PRU']
 df_pf['PV_Latente'] = df_pf['Valo'] - df_pf['Investi']
@@ -230,7 +227,6 @@ TOTAL_ACTUEL = df_pf['Valo'].sum()
 CASH_DISPO = df_pf[df_pf['Ticker']=='CASH']['Valo'].sum()
 PV_TOTALE = df_pf['PV_Latente'].sum()
 
-# Volatilité vs Historique (Le vrai juge)
 if not df_hist.empty:
     last_hist_total = df_hist.iloc[-1]['Total']
     delta_day = TOTAL_ACTUEL - last_hist_total
@@ -239,7 +235,6 @@ else:
     delta_day = df_pf['Var_24h_€'].sum()
     delta_pct = 0.0
 
-# --- CALCUL CAGR (Fixe) ---
 CAPITAL_INITIAL = 15450.00  
 DATE_DEBUT = datetime(2022, 1, 1) 
 annees_detention = (datetime.now() - DATE_DEBUT).days / 365.25
@@ -250,11 +245,9 @@ else:
 
 # --- 5. INTERFACE UTILISATEUR ---
 
-# Header
 st.markdown("## 🏛️ Tableau de Bord")
 st.caption(f"Valorisation en temps réel • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
-# Hero Section
 st.markdown(f"""
 <div style="background: linear-gradient(135deg, {bg_color} 0%, {card_bg} 100%); 
             padding: 30px; border-radius: 24px; border: 1px solid {border_color}; 
@@ -269,24 +262,23 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Bento Grid (KPIs)
 col1, col2, col3 = st.columns(3)
 col1.metric("Cash Disponible", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc.")
 col2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%")
 col3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 
-# --- SECTION 1 : PORTEFEUILLE (MODIFIÉE) ---
+# --- SECTION 1 : PORTEFEUILLE (TRANSPARENT) ---
 st.markdown("<div class='section-header'>📋 Détail du Portefeuille</div>", unsafe_allow_html=True)
 
-# Fonction pour le styling des couleurs
+# Préparation
+df_display = df_pf[['Nom', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_24h_€']].copy()
+
 def style_pos_neg(v):
-    color = '#10b981' if v >= 0 else '#ef4444' # Vert émeraude ou Rouge vif
-    return f'color: {color}; font-weight: bold;'
+    if pd.isna(v): return ""
+    color = '#10b981' if v >= 0 else '#ef4444'
+    return f'color: {color}; font-weight: 700;'
 
-# Préparation des données avec Styler
-df_display = df_pf[['Nom', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_24h_€']]
-
-# Application du style Pandas
+# Style Pandas pur (Gère le formatage et les couleurs)
 styled_df = df_display.style.format({
     "Quantité": "{:.4f}",
     "PRU": "{:.2f} €",
@@ -296,23 +288,16 @@ styled_df = df_display.style.format({
     "Var_24h_€": "{:+.2f} €"
 }).map(style_pos_neg, subset=['Perf_%', 'Var_24h_€'])
 
+# Affichage simple sans config colonne (conflit évité)
 st.dataframe(
     styled_df,
     hide_index=True,
-    use_container_width=True,
-    column_config={
-        "Nom": st.column_config.TextColumn("Actif", width="medium"),
-        "Valo": st.column_config.NumberColumn("Valorisation"),
-        "PRU": st.column_config.NumberColumn("Prix Revient"),
-        "Prix_Actuel": st.column_config.NumberColumn("Cours"),
-        "Perf_%": st.column_config.NumberColumn("Perf %"), # Plus de ProgressColumn
-        "Var_24h_€": st.column_config.NumberColumn("24h")
-    }
+    use_container_width=True
 )
 
 st.markdown("---")
 
-# --- SECTION 2 : ANALYSE GRAPHIQUE ---
+# --- SECTION 2 : ANALYSE ---
 st.markdown("<div class='section-header'>📊 Analyse & Marché</div>", unsafe_allow_html=True)
 
 if not df_hist.empty:
@@ -322,7 +307,7 @@ if not df_hist.empty:
         st.caption("Trajectoire Patrimoniale")
         fig = px.area(df_hist, x='Date', y='Total', line_shape='spline')
         fig.update_layout(
-            template="plotly_dark" if dark_mode else "simple_white", # Thème natif Plotly
+            template="plotly_dark" if dark_mode else "simple_white",
             margin=dict(l=0,r=0,t=10,b=0), height=350,
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
         )
@@ -344,7 +329,6 @@ if not df_hist.empty:
 else:
     st.info("Attente de la première exécution du Robot de nuit...")
 
-# Indices Marché
 st.caption("Pulsation Mondiale")
 df_m = get_market_indices()
 if not df_m.empty:
@@ -368,13 +352,12 @@ with col_sim_input:
         
         st.markdown(f"""
         <div style="margin-top: 20px; padding: 15px; background: {card_bg}; border-radius: 12px; border: 1px solid {border_color};">
-            <small style="color: {text_color}; opacity: 0.3;">Capital Départ</small><br>
+            <small style="color: {text_color}; opacity: 0.7;">Capital Départ</small><br>
             <strong style="color: {text_color};">{TOTAL_ACTUEL:,.0f} €</strong>
         </div>
         """, unsafe_allow_html=True)
 
 with col_sim_graph:
-    # Calcul Simulation
     annees = range(datetime.now().year, datetime.now().year + duree_ans + 1)
     capital = [TOTAL_ACTUEL]
     for i in range(duree_ans):
@@ -383,7 +366,6 @@ with col_sim_graph:
     
     df_sim = pd.DataFrame({"Année": annees, "Capital": capital})
     
-    # Graphique Projection
     fig_sim = px.area(df_sim, x="Année", y="Capital")
     fig_sim.update_layout(
         template="plotly_dark" if dark_mode else "simple_white",
