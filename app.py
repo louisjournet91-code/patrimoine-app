@@ -10,67 +10,103 @@ import io
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Ultimate Liquid Estate", layout="wide", page_icon="💎")
 
-# --- 2. DESIGN SYSTEM "ULTIMATE GLASS" ---
-st.markdown("""
-<style>
-    /* IMPORT POLICE MODERNE */
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap');
+# --- 2. GESTION DU THÈME (DARK / LIGHT) ---
+with st.sidebar:
+    st.header("⚙️ Préférences")
+    dark_mode = st.toggle("🌙 Mode Sombre", value=True) # Par défaut sombre pour l'effet "Premium"
+    st.caption("Ultimate Liquid Estate v2.0")
 
-    /* FOND MAILLÉ (MESH GRADIENT) */
+# Définition des palettes selon le mode
+if dark_mode:
+    # --- THEME MIDNIGHT ONYX (SOMBRE) ---
+    bg_color = "#0f172a"
+    text_color = "#f8fafc"
+    card_bg = "rgba(30, 41, 59, 0.7)"
+    border_color = "rgba(255, 255, 255, 0.1)"
+    chart_line_color = "#38bdf8" # Cyan électrique
+    chart_fill_color = "rgba(56, 189, 248, 0.15)"
+    metric_gradient = "linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)"
+    
+    css_theme = """
+    /* FOND SOMBRE PROFOND */
+    .stApp {
+        background-color: #020617;
+        background-image: 
+            radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+            radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+            radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+        color: #f8fafc;
+    }
+    h1, h2, h3, p, span, div { color: #f8fafc; }
+    div[data-testid="stMetricLabel"] { color: #94a3b8 !important; }
+    """
+else:
+    # --- THEME LIQUID DAYLIGHT (CLAIR) ---
+    bg_color = "#f0f4f8"
+    text_color = "#1e293b"
+    card_bg = "rgba(255, 255, 255, 0.6)"
+    border_color = "rgba(255, 255, 255, 0.8)"
+    chart_line_color = "#2563eb" # Bleu roi
+    chart_fill_color = "rgba(37, 99, 235, 0.1)"
+    metric_gradient = "linear-gradient(135deg, #0f172a 0%, #334155 100%)"
+    
+    css_theme = """
+    /* FOND MAILLÉ CLAIR */
     .stApp {
         background-color: #f0f4f8;
         background-image: 
             radial-gradient(at 0% 0%, hsla(210,100%,96%,1) 0, transparent 50%), 
             radial-gradient(at 50% 0%, hsla(220,100%,93%,1) 0, transparent 50%), 
-            radial-gradient(at 100% 0%, hsla(190,100%,94%,1) 0, transparent 50%),
-            radial-gradient(at 0% 100%, hsla(260,100%,95%,1) 0, transparent 50%),
-            radial-gradient(at 80% 100%, hsla(240,100%,96%,1) 0, transparent 50%),
-            radial-gradient(at 0% 50%, hsla(340,100%,96%,1) 0, transparent 50%);
-        font-family: 'Outfit', sans-serif;
+            radial-gradient(at 100% 0%, hsla(190,100%,94%,1) 0, transparent 50%);
         color: #1e293b;
     }
+    h1, h2, h3 { color: #0f172a; }
+    div[data-testid="stMetricLabel"] { color: #64748b !important; }
+    """
 
-    /* --- STYLE GLASS AVANCÉ --- */
+# Injection du CSS Dynamique
+st.markdown(f"""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap');
+    
+    .stApp {{ font-family: 'Outfit', sans-serif; }}
+
+    {css_theme}
+
+    /* --- STYLE GLASS UNIFIÉ --- */
     div[data-testid="stMetric"], 
     div[data-testid="stDataFrame"], 
     div.stPlotlyChart, 
-    div.stExpander {
-        background: rgba(255, 255, 255, 0.6) !important;
+    div.stExpander {{
+        background: {card_bg} !important;
         backdrop-filter: blur(20px) saturate(180%);
         -webkit-backdrop-filter: blur(20px) saturate(180%);
         border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.8);
+        border: 1px solid {border_color};
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
         padding: 24px !important;
         transition: transform 0.3s ease;
-    }
+    }}
 
-    div[data-testid="stMetric"]:hover {
-        transform: translateY(-5px);
-    }
+    div[data-testid="stMetric"]:hover {{ transform: translateY(-5px); }}
 
-    /* TYPOGRAPHIE PREMIUM */
-    h1, h2, h3 { color: #0f172a; font-weight: 800; letter-spacing: -0.5px; }
+    /* TYPO & VALEURS */
+    h1, h2, h3 {{ font-weight: 800; letter-spacing: -0.5px; }}
     
-    div[data-testid="stMetricLabel"] {
-        font-size: 14px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
-    }
-    div[data-testid="stMetricValue"] {
+    div[data-testid="stMetricLabel"] {{
+        font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+    }}
+    div[data-testid="stMetricValue"] {{
         font-size: 32px; font-weight: 800;
-        background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+        background: {metric_gradient};
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
+    }}
     
-    /* Sections Titres */
-    .section-header {
-        margin-top: 40px;
-        margin-bottom: 20px;
-        font-size: 24px;
-        font-weight: 700;
-        color: #334155;
-        border-bottom: 2px solid rgba(0,0,0,0.05);
-        padding-bottom: 10px;
-    }
+    /* COMPOSANTS UI */
+    .section-header {{
+        margin-top: 40px; margin-bottom: 20px; font-size: 24px; font-weight: 700;
+        border-bottom: 2px solid {border_color}; padding-bottom: 10px;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -220,15 +256,15 @@ st.caption(f"Valorisation en temps réel • {datetime.now().strftime('%d/%m/%Y 
 
 # Hero Section
 st.markdown(f"""
-<div style="background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); 
-            padding: 30px; border-radius: 24px; border: 1px solid white; 
+<div style="background: linear-gradient(135deg, {bg_color} 0%, {card_bg} 100%); 
+            padding: 30px; border-radius: 24px; border: 1px solid {border_color}; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.05); text-align: center; margin-bottom: 25px;">
-    <p style="color: #64748b; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin: 0;">Fortune Nette</p>
-    <h1 style="font-size: 64px; margin: 5px 0; background: -webkit-linear-gradient(45deg, #0f172a, #2563eb); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+    <p style="color: {text_color}; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin: 0; opacity: 0.7;">Fortune Nette</p>
+    <h1 style="font-size: 64px; margin: 5px 0; background: {metric_gradient}; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
         {TOTAL_ACTUEL:,.2f} €
     </h1>
     <p style="color: {'#10b981' if delta_day >= 0 else '#ef4444'}; font-weight: 600; font-size: 18px;">
-        {delta_day:+.2f} € ({delta_pct:+.2f}%) <span style="color: #94a3b8; font-size: 14px;">• Depuis minuit</span>
+        {delta_day:+.2f} € ({delta_pct:+.2f}%) <span style="color: {text_color}; opacity: 0.5; font-size: 14px;">• Depuis minuit</span>
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -267,17 +303,25 @@ if not df_hist.empty:
     with c1:
         st.caption("Trajectoire Patrimoniale")
         fig = px.area(df_hist, x='Date', y='Total', line_shape='spline')
-        fig.update_layout(template="simple_white", margin=dict(l=0,r=0,t=10,b=0), height=350)
-        fig.update_traces(line_color='#2563eb', fillcolor='rgba(37, 99, 235, 0.1)')
+        fig.update_layout(
+            template="plotly_dark" if dark_mode else "simple_white", # Thème natif Plotly
+            margin=dict(l=0,r=0,t=10,b=0), height=350,
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+        )
+        fig.update_traces(line_color=chart_line_color, fillcolor=chart_fill_color)
         st.plotly_chart(fig, use_container_width=True)
         
     with c2:
         st.caption("Benchmark (Base 100)")
         if 'PF_Index100' in df_hist.columns and 'ESE_Index100' in df_hist.columns:
             fig_b = go.Figure()
-            fig_b.add_trace(go.Scatter(x=df_hist['Date'], y=df_hist['PF_Index100'], name="Moi", line=dict(color='#0f172a', width=2)))
+            fig_b.add_trace(go.Scatter(x=df_hist['Date'], y=df_hist['PF_Index100'], name="Moi", line=dict(color=text_color, width=2)))
             fig_b.add_trace(go.Scatter(x=df_hist['Date'], y=df_hist['ESE_Index100'], name="S&P500", line=dict(color='#94a3b8', dash='dot')))
-            fig_b.update_layout(template="simple_white", margin=dict(l=0,r=0,t=10,b=0), height=350, legend=dict(orientation="h", y=1.1, x=0))
+            fig_b.update_layout(
+                template="plotly_dark" if dark_mode else "simple_white",
+                margin=dict(l=0,r=0,t=10,b=0), height=350, legend=dict(orientation="h", y=1.1, x=0),
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+            )
             st.plotly_chart(fig_b, use_container_width=True)
 else:
     st.info("Attente de la première exécution du Robot de nuit...")
@@ -305,9 +349,9 @@ with col_sim_input:
         duree_ans = st.slider("Horizon (Années)", 5, 30, 15, key="sim_years")
         
         st.markdown(f"""
-        <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.5); border-radius: 12px;">
-            <small>Capital Départ</small><br>
-            <strong>{TOTAL_ACTUEL:,.0f} €</strong>
+        <div style="margin-top: 20px; padding: 15px; background: {card_bg}; border-radius: 12px; border: 1px solid {border_color};">
+            <small style="color: {text_color}; opacity: 0.7;">Capital Départ</small><br>
+            <strong style="color: {text_color};">{TOTAL_ACTUEL:,.0f} €</strong>
         </div>
         """, unsafe_allow_html=True)
 
@@ -324,10 +368,11 @@ with col_sim_graph:
     # Graphique Projection
     fig_sim = px.area(df_sim, x="Année", y="Capital")
     fig_sim.update_layout(
-        template="simple_white",
+        template="plotly_dark" if dark_mode else "simple_white",
         height=400,
         margin=dict(l=0,r=0,t=20,b=0),
-        hovermode="x unified"
+        hovermode="x unified",
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
     )
     fig_sim.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.15)')
     fig_sim.add_hline(y=1000000, line_dash="dot", line_color="#cbd5e1", annotation_text="1M€ (Liberté)", annotation_position="top left")
