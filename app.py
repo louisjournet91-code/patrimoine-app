@@ -5,7 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
-# --- 1. CONFIGURATION & STYLE BANQUE PRIVÉE ---
+# --- 1. CONFIGURATION & STYLE PREMIUM ---
 st.set_page_config(page_title="Gestion Patrimoniale", layout="wide", page_icon="🏛️")
 
 st.markdown("""
@@ -19,11 +19,14 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
     .stTabs [data-baseweb="tab"] { background-color: #ffffff; border: 1px solid #e2e8f0; }
     .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #0f172a; color: white; }
-    div[data-testid="stForm"] { border: 1px solid #d4af37; background-color: #fffdf5; padding: 10px; border-radius: 10px;}
+    
+    /* Style distinct pour les modules de saisie */
+    .cash-module { border-left: 5px solid #10b981; padding-left: 10px; }
+    .trade-module { border-left: 5px solid #0f172a; padding-left: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. INITIALISATION DES DONNÉES (MÉMOIRE SESSION) ---
+# --- 2. INITIALISATION DES DONNÉES ---
 
 INITIAL_PORTFOLIO = {
     "Ticker": ["ESE.PA", "DCAM.PA", "PUST.PA", "CL2.PA", "BTC-EUR", "CASH"],
@@ -33,137 +36,142 @@ INITIAL_PORTFOLIO = {
     "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
 }
 
-# Si c'est le premier chargement, on crée la "base de données" temporaire
 if 'portfolio_df' not in st.session_state:
-    st.session_state['portfolio_df'] = pd.DataFrame(INITIAL_PORTFOLIO)
+    df_init = pd.DataFrame(INITIAL_PORTFOLIO)
+    # On force le typage float pour éviter les bugs de calcul
+    df_init['Quantité'] = df_init['Quantité'].astype(float)
+    df_init['PRU'] = df_init['PRU'].astype(float)
+    st.session_state['portfolio_df'] = df_init
 
-# --- 3. LOGIQUE DES OPÉRATIONS (MOTEUR TRANSACTIONNEL) ---
+# --- 3. MOTEUR TRANSACTIONNEL (SEPARÉ) ---
 
-def update_cash(amount):
-    """Ajoute (ou retire si négatif) de l'argent à la ligne CASH de façon robuste."""
+def operation_tresorerie(amount):
+    """Gère uniquement le Cash (Apport/Retrait)"""
     df = st.session_state['portfolio_df']
-    # On utilise un masque booléen pour trouver la ligne CASH à coup sûr
-    mask = df['Ticker'] == "CASH"
+    # Utilisation de .loc avec masque pour être infaillible
+    mask = df['Ticker'] == 'CASH'
     
     if mask.any():
-        # On récupère l'ancienne valeur
-        current_val = df.loc[mask, 'Quantité'].values[0]
-        # On met à jour
-        df.loc[mask, 'Quantité'] = current_val + amount
-        st.session_state['portfolio_df'] = df # Sauvegarde forcée
+        current_cash = df.loc[mask, 'Quantité'].values[0]
+        df.loc[mask, 'Quantité'] = current_cash + amount
+        st.session_state['portfolio_df'] = df
         return True
     return False
 
-def execute_order(action, ticker, qty, price):
-    """Exécute Achat ou Vente avec recalcul du PRU"""
+def operation_trading(action, ticker, qty, price, nom_actif="Nouvel Actif", type_actif="Action"):
+    """Gère uniquement l'Achat/Vente de titres"""
     df = st.session_state['portfolio_df']
     
-    # Vérifier si l'actif existe, sinon l'ajouter
+    # 1. Gestion Actif Inconnu (Création)
     if ticker not in df['Ticker'].values:
-        new_row = {"Ticker": ticker, "Nom": ticker, "Type": "Autre", "Quantité": 0.0, "PRU": 0.0}
-        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-        st.session_state['portfolio_df'] = df # Sauvegarde intermédiaire
-
-    # Localisation de la ligne de l'actif
-    mask = df['Ticker'] == ticker
-    idx = df.index[mask].tolist()[0]
+        if action == "Vente": return False, "Impossible de vendre un actif que vous ne possédez pas."
+        new_row = pd.DataFrame([{
+            "Ticker": ticker, "Nom": nom_actif, "Type": type_actif, 
+            "Quantité": 0.0, "PRU": 0.0
+        }])
+        df = pd.concat([df, new_row], ignore_index=True)
     
-    current_qty = df.at[idx, 'Quantité']
-    current_pru = df.at[idx, 'PRU']
-    transaction_total = qty * price
+    # 2. Récupération Cash Dispo
+    cash_mask = df['Ticker'] == 'CASH'
+    cash_dispo = df.loc[cash_mask, 'Quantité'].values[0]
+    total_ordre = qty * price
+    
+    # 3. Ciblage de la ligne Actif
+    asset_mask = df['Ticker'] == ticker
+    current_qty = df.loc[asset_mask, 'Quantité'].values[0]
+    current_pru = df.loc[asset_mask, 'PRU'].values[0]
     
     if action == "Achat":
-        # Vérif Cash
-        cash_dispo = df.loc[df['Ticker'] == "CASH", 'Quantité'].values[0]
-        if cash_dispo < transaction_total:
-            return False, "❌ Liquidités insuffisantes !"
-            
-        # Calcul Nouveau PRU (Moyenne Pondérée)
+        if cash_dispo < total_ordre:
+            return False, f"Liquidités insuffisantes (Manque {total_ordre - cash_dispo:.2f}€)"
+        
+        # Calcul PRU Pondéré
         new_qty = current_qty + qty
         new_pru = ((current_qty * current_pru) + (qty * price)) / new_qty
         
-        # Mise à jour Actif
-        df.at[idx, 'Quantité'] = new_qty
-        df.at[idx, 'PRU'] = new_pru
-        st.session_state['portfolio_df'] = df # Sauvegarde
+        # Application
+        df.loc[asset_mask, 'Quantité'] = new_qty
+        df.loc[asset_mask, 'PRU'] = new_pru
+        df.loc[cash_mask, 'Quantité'] = cash_dispo - total_ordre
         
-        # Débit Cash
-        update_cash(-transaction_total)
-        return True, f"✅ Achat validé : {qty} {ticker}. Nouveau PRU : {new_pru:.2f}€"
-
+        st.session_state['portfolio_df'] = df
+        return True, f"✅ Achat exécuté : {qty} {ticker} (Nouveau PRU: {new_pru:.2f}€)"
+        
     elif action == "Vente":
         if current_qty < qty:
-            return False, "❌ Quantité insuffisante !"
+            return False, "Vous vendez plus que vous ne possédez !"
             
-        # Mise à jour Actif (PRU ne change pas à la vente)
-        df.at[idx, 'Quantité'] = current_qty - qty
-        st.session_state['portfolio_df'] = df # Sauvegarde
+        # Application (Le PRU ne change pas à la vente)
+        df.loc[asset_mask, 'Quantité'] = current_qty - qty
+        df.loc[cash_mask, 'Quantité'] = cash_dispo + total_ordre
         
-        # Crédit Cash
-        update_cash(transaction_total)
-        return True, f"✅ Vente validée : +{transaction_total:.2f}€ sur le compte."
+        st.session_state['portfolio_df'] = df
+        return True, f"✅ Vente exécutée. +{total_ordre:.2f}€ crédités."
         
-    return False, "Erreur technique."
+    return False, "Erreur inconnue"
 
-# --- 4. BARRE LATÉRALE (OPERATIONS) ---
+# --- 4. SIDEBAR : LES DEUX GUICHETS DISTINCTS ---
+
 with st.sidebar:
-    st.header("🏦 Opérations")
+    st.header("Opérations")
     
-    with st.form("ops_form"):
-        type_op = st.radio("Action", ["Apport Cash", "Achat Titre", "Vente Titre"], horizontal=True)
+    # --- MODULE 1 : TRÉSORERIE ---
+    with st.expander("💰 Trésorerie (Virements)", expanded=True):
+        st.caption("Alimenter le compte Liquidités")
+        montant_virement = st.number_input("Montant (€)", min_value=0.0, step=100.0, key="input_virement")
         
-        # Affichage dynamique selon le choix
-        if type_op == "Apport Cash":
-            st.info("Virement vers le compte Liquidités")
-            ticker_in = "CASH"
-            qty_in = 0.0
-            amount_in = st.number_input("Montant (€)", min_value=10.0, step=50.0)
+        if st.button("Valider le Virement", type="secondary", use_container_width=True):
+            if montant_virement > 0:
+                operation_tresorerie(montant_virement)
+                st.success(f"+{montant_virement}€ ajoutés !")
+                st.rerun()
+
+    st.markdown("---")
+
+    # --- MODULE 2 : TRADING ---
+    with st.expander("📈 Trading (Achat/Vente)", expanded=True):
+        st.caption("Passer un ordre de bourse")
+        
+        sens = st.radio("Sens", ["Achat", "Vente"], horizontal=True)
+        
+        # Sélection Actif (Existant ou Nouveau)
+        existing_tickers = [t for t in st.session_state['portfolio_df']['Ticker'].unique() if t != "CASH"]
+        mode_actif = st.radio("Actif", ["Existant", "Nouveau"], horizontal=True, label_visibility="collapsed")
+        
+        if mode_actif == "Existant":
+            ticker = st.selectbox("Sélectionner", existing_tickers)
+            nom_actif = "" # Pas besoin
         else:
-            # Liste des actifs existants pour faciliter la sélection
-            tickers_list = [t for t in st.session_state['portfolio_df']['Ticker'].unique() if t != "CASH"]
-            ticker_in = st.selectbox("Actif", tickers_list + ["NOUVEAU..."])
-            if ticker_in == "NOUVEAU...":
-                ticker_in = st.text_input("Symbole (ex: MC.PA)").upper()
-                
-            c1, c2 = st.columns(2)
-            qty_in = c1.number_input("Quantité", min_value=0.01, step=1.0)
-            price_in = c2.number_input("Prix Unitaire (€)", min_value=0.01, step=0.1)
-            amount_in = 0 # Pas utilisé ici, on utilise qty * price
-
-        btn = st.form_submit_button("Exécuter l'ordre", type="primary")
+            ticker = st.text_input("Ticker (ex: AI.PA)").upper()
+            nom_actif = st.text_input("Nom (ex: Air Liquide)")
         
-        if btn:
-            if type_op == "Apport Cash":
-                update_cash(amount_in)
-                st.success(f"💰 +{amount_in}€ ajoutés aux liquidités !")
-                st.rerun() # Force le rafraîchissement immédiat de la page
+        c1, c2 = st.columns(2)
+        qty = c1.number_input("Quantité", min_value=0.01, step=1.0)
+        price = c2.number_input("Prix Limite", min_value=0.01, step=0.1)
+        
+        st.markdown(f"**Total Ordre : {qty*price:,.2f} €**")
+        
+        if st.button(f"Confirmer {sens}", type="primary", use_container_width=True):
+            success, msg = operation_trading(sens, ticker, qty, price, nom_actif)
+            if success:
+                st.success(msg)
+                st.rerun()
             else:
-                ok, msg = execute_order("Achat" if type_op=="Achat Titre" else "Vente", ticker_in, qty_in, price_in)
-                if ok:
-                    st.success(msg)
-                    st.rerun() # Force le rafraîchissement
-                else:
-                    st.error(msg)
+                st.error(msg)
 
-# --- 5. CALCULS & DATA (LIVE) ---
+# --- 5. CALCULS & AFFICHAGE (FRONTEND) ---
 
 @st.cache_data(ttl=60)
 def get_prices(tickers):
-    """Récupère les prix actuels et veille"""
-    real_tickers = [t for t in tickers if t != "CASH"]
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
-    
+    real_tickers = [t for t in tickers if t != "CASH"]
     if real_tickers:
         try:
-            # On prend 5 jours pour être sûr d'avoir la veille
             data = yf.download(real_tickers, period="5d", progress=False)['Close']
-            
-            # Gestion retour unique ou multiple
+            # Gestion Single vs Multi Index
             if len(real_tickers) == 1:
-                # Series
                 prices[real_tickers[0]] = {"cur": float(data.iloc[-1]), "prev": float(data.iloc[-2])}
             else:
-                # DataFrame
                 last = data.iloc[-1]
                 prev = data.iloc[-2]
                 for t in real_tickers:
@@ -172,44 +180,43 @@ def get_prices(tickers):
         except: pass
     return prices
 
-# Récupération du DataFrame Session
+# Récupération Data Session
 df = st.session_state['portfolio_df'].copy()
 market_data = get_prices(df['Ticker'].unique())
 
-# Application des prix
+# Injection des prix
 df['Prix_Actuel'] = df['Ticker'].apply(lambda x: market_data.get(x, {}).get("cur", df.loc[df['Ticker']==x, 'PRU'].values[0]))
 df['Prix_Veille'] = df['Ticker'].apply(lambda x: market_data.get(x, {}).get("prev", df.loc[df['Ticker']==x, 'PRU'].values[0]))
 
-# Calculs financiers
+# Calculs Financiers
 df['Valo'] = df['Quantité'] * df['Prix_Actuel']
 df['Investi'] = df['Quantité'] * df['PRU']
 df['Plus_Value'] = df['Valo'] - df['Investi']
 df['Perf_%'] = df.apply(lambda x: ((x['Prix_Actuel'] - x['PRU']) / x['PRU'] * 100) if x['PRU']>0 else 0, axis=1)
 df['Var_Jour_€'] = df['Valo'] - (df['Quantité'] * df['Prix_Veille'])
 
-# Totaux
+# Agrégats
 cash = df[df['Ticker']=="CASH"]['Valo'].sum()
 investi_titres = df[df['Ticker']!="CASH"]['Investi'].sum()
 valo_titres = df[df['Ticker']!="CASH"]['Valo'].sum()
 total_pf = valo_titres + cash
 total_pv = valo_titres - investi_titres
 
-# --- 6. INTERFACE PRINCIPALE ---
+# --- 6. INTERFACE ---
 
 st.title("Terminal de Gestion")
-st.caption(f"Date valeur : {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"Dernière valorisation : {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 # KPI
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Portefeuille Total", f"{total_pf:,.2f} €")
-k2.metric("Liquidités", f"{cash:,.2f} €", help="Disponible pour investir")
-k3.metric("Montant Investi (Titres)", f"{investi_titres:,.2f} €")
+k2.metric("Liquidités", f"{cash:,.2f} €")
+k3.metric("Investi (Titres)", f"{investi_titres:,.2f} €")
 k4.metric("PV Latente", f"{total_pv:+,.2f} €", f"{(total_pv/investi_titres)*100 if investi_titres>0 else 0:+.2f}%")
 
 st.markdown("---")
 
-# ONGLETS (AVEC LE RETOUR DE LA PROJECTION)
-tab1, tab2, tab3 = st.tabs(["📋 Portefeuille", "📊 Analyse", "🔮 Projection Rente"])
+tab1, tab2, tab3 = st.tabs(["📋 Positions", "📊 Analyse", "🔮 Projection"])
 
 with tab1:
     st.dataframe(
@@ -227,7 +234,6 @@ with tab1:
 with tab2:
     c1, c2 = st.columns(2)
     with c1:
-        # Waterfall
         fig_w = go.Figure(go.Waterfall(
             orientation="v", measure=["relative"] * len(df),
             x=df['Nom'], y=df['Plus_Value'],
@@ -237,53 +243,29 @@ with tab2:
         fig_w.update_layout(title="Contribution PV (€)", template="simple_white")
         st.plotly_chart(fig_w, use_container_width=True)
     with c2:
-        # Donut
         fig_d = px.pie(df[df['Ticker']!="CASH"], values='Valo', names='Nom', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig_d.update_layout(title="Répartition Actifs", showlegend=False, template="simple_white")
-        fig_d.add_annotation(text=f"{valo_titres/1000:.1f}k€", showarrow=False, font=dict(size=20))
+        fig_d.update_layout(title="Répartition", showlegend=False, template="simple_white")
         st.plotly_chart(fig_d, use_container_width=True)
 
 with tab3:
-    st.header("Simulateur d'Indépendance Financière")
-    
+    st.header("Projection")
     col_in, col_out = st.columns([1, 2])
-    
     with col_in:
         st.markdown("#### Paramètres")
-        # On prend le total actuel comme point de départ
-        capital_depart = total_pf
-        apport_mensuel = st.number_input("Apport mensuel (€)", 0, 5000, 500, step=100)
-        rendement_annuel = st.slider("Rendement annuel (%)", 2.0, 15.0, 8.0, 0.5)
-        duree_ans = st.slider("Horizon (années)", 5, 35, 15)
-        
+        start_cap = total_pf
+        monthly_add = st.number_input("Apport mensuel (€)", 0, 5000, 500, step=100)
+        rate = st.slider("Rendement (%)", 2.0, 15.0, 8.0, 0.5)
+        years = st.slider("Horizon (ans)", 5, 35, 15)
     with col_out:
-        # Calcul Intérêts Composés
-        data_proj = []
-        capital = capital_depart
+        proj_data = []
+        cap = start_cap
+        for y in range(1, years + 1):
+            interest = cap * (rate / 100)
+            cap = cap + interest + (monthly_add * 12)
+            proj_data.append({"Année": datetime.now().year + y, "Capital": cap})
         
-        for annee in range(1, duree_ans + 1):
-            # Intérêts gagnés cette année
-            interets = capital * (rendement_annuel / 100)
-            # Ajout des versements (12 mois)
-            versements = apport_mensuel * 12
-            # Nouveau capital
-            capital = capital + interets + versements
-            
-            data_proj.append({
-                "Année": datetime.now().year + annee,
-                "Capital": capital,
-                "Intérêts Cumulés": interets # Juste pour l'année en cours ici, simplifie
-            })
-            
-        df_proj = pd.DataFrame(data_proj)
-        
-        # Affichage Graphique Area Chart (Effet Premium)
-        fig_proj = px.area(df_proj, x="Année", y="Capital", title="Évolution de votre Patrimoine", color_discrete_sequence=["#0f172a"])
-        fig_proj.update_layout(template="simple_white")
-        st.plotly_chart(fig_proj, use_container_width=True)
-        
-        capital_final = df_proj.iloc[-1]['Capital']
-        rente_mensuelle_4pct = (capital_final * 0.04) / 12
-        
-        st.success(f"🎯 **Objectif {datetime.now().year + duree_ans}** : **{capital_final:,.0f} €**")
-        st.info(f"💸 Rente passive potentielle (Règle des 4%) : **{rente_mensuelle_4pct:,.0f} € / mois**")
+        df_proj = pd.DataFrame(proj_data)
+        fig_p = px.area(df_proj, x="Année", y="Capital", title="Patrimoine Futur", color_discrete_sequence=["#0f172a"])
+        fig_p.update_layout(template="simple_white")
+        st.plotly_chart(fig_p, use_container_width=True)
+        st.success(f"🎯 Capital à terme : {cap:,.0f} €")
