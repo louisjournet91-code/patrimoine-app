@@ -8,150 +8,154 @@ import os
 import io
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Liquid Mesh Estate", layout="wide", page_icon="💎")
+st.set_page_config(page_title="Ultimate Liquid Estate", layout="wide", page_icon="💎")
 
-# --- 2. DESIGN SYSTEM "LIQUID MESH" ---
+# --- 2. DESIGN SYSTEM "ULTIMATE GLASS" ---
 st.markdown("""
 <style>
-    /* IMPORT POLICE */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap');
+    /* IMPORT POLICE MODERNE */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap');
 
-    /* FOND D'ÉCRAN MESH GRADIENT */
+    /* FOND MAILLÉ (MESH GRADIENT) PLUS LUMINEUX */
     .stApp {
-        background-color: #f8fafc;
+        background-color: #f0f4f8;
         background-image: 
-            radial-gradient(at 0% 0%, hsla(253,16%,90%,1) 0, transparent 50%), 
-            radial-gradient(at 50% 0%, hsla(225,39%,90%,1) 0, transparent 50%), 
-            radial-gradient(at 100% 0%, hsla(339,49%,90%,1) 0, transparent 50%),
-            radial-gradient(at 0% 100%, hsla(280,100%,93%,1) 0, transparent 50%),
-            radial-gradient(at 100% 100%, hsla(180,100%,90%,1) 0, transparent 50%);
-        font-family: 'Inter', sans-serif;
+            radial-gradient(at 0% 0%, hsla(210,100%,96%,1) 0, transparent 50%), 
+            radial-gradient(at 50% 0%, hsla(220,100%,93%,1) 0, transparent 50%), 
+            radial-gradient(at 100% 0%, hsla(190,100%,94%,1) 0, transparent 50%),
+            radial-gradient(at 0% 100%, hsla(260,100%,95%,1) 0, transparent 50%),
+            radial-gradient(at 80% 100%, hsla(240,100%,96%,1) 0, transparent 50%),
+            radial-gradient(at 0% 50%, hsla(340,100%,96%,1) 0, transparent 50%);
+        font-family: 'Outfit', sans-serif;
         color: #1e293b;
     }
 
-    /* LE STYLE LIQUID GLASS */
+    /* --- LE STYLE LIQUID GLASS AVANCÉ --- */
+    
+    /* Conteneurs génériques (Métriques, Charts) */
     div[data-testid="stMetric"], 
     div[data-testid="stDataFrame"], 
     div.stPlotlyChart, 
     div.stForm,
     div.stExpander {
-        background-color: rgba(255, 255, 255, 0.45) !important; 
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: rgba(255, 255, 255, 0.6) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
         border-radius: 24px;
-        box-shadow: 
-            0 8px 32px 0 rgba(31, 38, 135, 0.07), 
-            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.7), 
-            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.4);
         border: 1px solid rgba(255, 255, 255, 0.8);
-        padding: 20px !important;
-        transition: all 0.3s ease;
-    }
-
-    div[data-testid="stMetric"]:hover, div.stPlotlyChart:hover {
-        transform: translateY(-5px);
-        background-color: rgba(255, 255, 255, 0.55) !important;
         box-shadow: 
-            0 15px 35px rgba(31, 38, 135, 0.1),
-            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.9), 
-            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.5);
-        border: 1px solid rgba(255, 255, 255, 1);
+            0 10px 40px rgba(0, 0, 0, 0.06),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.5); /* Double bordure interne */
+        padding: 24px !important;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     }
 
-    h1, h2, h3, h4 {
+    /* Effet de survol "Lévitation" */
+    div[data-testid="stMetric"]:hover, div.stPlotlyChart:hover {
+        transform: translateY(-6px);
+        box-shadow: 
+            0 20px 50px rgba(30, 41, 59, 0.12),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+    }
+
+    /* --- TYPOGRAPHIE PREMIUM --- */
+    h1, h2, h3 {
         color: #0f172a;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+        font-weight: 800;
+        letter-spacing: -0.5px;
     }
     
+    /* Label des métriques (Petit texte) */
+    div[data-testid="stMetricLabel"] {
+        font-size: 15px;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* Valeur des métriques (Gros chiffres) */
     div[data-testid="stMetricValue"] {
-        font-size: 30px;
-        font-weight: 700;
-        background: -webkit-linear-gradient(45deg, #0f172a, #334155);
+        font-size: 36px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-    }
-    div[data-testid="stMetricLabel"] {
-        color: #475569;
-        font-weight: 600;
-        font-size: 14px;
+        padding-bottom: 5px; /* Pour laisser place aux jambages */
     }
 
+    /* --- ÉLÉMENTS SPÉCIFIQUES --- */
+
+    /* Sidebar Givrée */
     section[data-testid="stSidebar"] {
-        background-color: rgba(255, 255, 255, 0.35);
-        backdrop-filter: blur(25px);
-        border-right: 1px solid rgba(255, 255, 255, 0.7);
-        box-shadow: 5px 0 25px rgba(0,0,0,0.03);
+        background-color: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(30px);
+        border-right: 1px solid rgba(255, 255, 255, 0.6);
     }
 
+    /* Onglets "Pill" */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-        background-color: rgba(255,255,255,0.3);
-        padding: 10px;
+        gap: 10px;
+        background: rgba(255,255,255,0.4);
+        padding: 8px;
         border-radius: 20px;
-        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,0.5);
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: rgba(255, 255, 255, 0.45);
-        border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        color: #475569;
+        height: 40px;
+        border-radius: 12px;
+        border: none;
+        color: #64748b;
         font-weight: 600;
-        backdrop-filter: blur(10px);
-        transition: all 0.2s;
+        background: transparent;
     }
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+        background: #ffffff;
         color: #0f172a;
-        border: 1px solid #ffffff;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    }
-    
-    div.stButton > button {
-        border-radius: 14px;
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-        color: white;
-        border: none;
-        font-weight: 600;
-        padding: 0.5rem 1.2rem;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
-        transition: all 0.3s;
-    }
-    div.stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     }
 
+    /* Boutons CTA */
+    div.stButton > button {
+        width: 100%;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+        color: white;
+        font-weight: 600;
+        border: none;
+        padding: 0.6rem 1rem;
+        box-shadow: 0 4px 15px rgba(15, 23, 42, 0.2);
+        transition: all 0.2s;
+    }
+    div.stButton > button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.3);
+    }
+
+    /* Custom CSS Class pour la "Hero Metric" (Total Patrimoine) */
+    /* Cette classe sera appliquée artificiellement via l'ordre des éléments */
+    
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. CONSTANTES & FICHIERS ---
+# --- 3. DONNÉES & LOGIQUE (INCHANGÉES) ---
 
 FILE_PORTFOLIO = 'portefeuille.csv'
 FILE_HISTORY = 'historique.csv'
 
-HIST_COLS = [
-    "Date", "Total", "PEA", "BTC", "Plus-value", "Delta", "PV du Jour", 
-    "ESE", "Flux (€)", "PF_Return_TWR", "ESE_Return", 
-    "PF_Index100", "ESE_Index100"
-]
+HIST_COLS = ["Date", "Total", "PEA", "BTC", "Plus-value", "Delta", "PV du Jour", "ESE", "Flux (€)", "PF_Return_TWR", "ESE_Return", "PF_Index100", "ESE_Index100"]
 
 INITIAL_PORTFOLIO = {
     "Ticker": ["ESE.PA", "DCAM.PA", "PUST.PA", "CL2.PA", "BTC-EUR", "CASH"],
     "Nom": ["BNP S&P 500", "Amundi World", "Lyxor Nasdaq", "Amundi USA x2", "Bitcoin", "Liquidités"],
     "Type": ["ETF Action", "ETF Action", "ETF Tech", "ETF Levier", "Crypto", "Cash"],
-    "Quantité": [141.0, 716.0, 55.0, 176.0, 0.01275433, 510.84], 
+    "Quantité": [141.0, 716.0, 55.0, 176.0, 0.01275433, 510.84],
     "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
 }
 
-# --- 4. FONCTIONS ---
-
 def safe_float(x):
     if pd.isna(x) or x == "": return 0.0
-    s = str(x).strip()
-    s = s.replace('"', '').replace('%', '').replace('€', '').replace(' ', '')
-    s = s.replace(',', '.')
+    s = str(x).strip().replace('"', '').replace('%', '').replace('€', '').replace(' ', '').replace(',', '.')
     try: return float(s)
     except: return 0.0
 
@@ -173,15 +177,12 @@ def load_state():
         try:
             with open(FILE_HISTORY, 'r') as f: raw_data = f.read()
             df_hist = pd.read_csv(io.StringIO(raw_data), sep=',', engine='python')
-            cols_to_clean = [c for c in df_hist.columns if c != "Date"]
-            for col in cols_to_clean:
+            for col in [c for c in df_hist.columns if c != "Date"]:
                 df_hist[col] = df_hist[col].apply(safe_float)
             df_hist['Date'] = pd.to_datetime(df_hist['Date'], dayfirst=True, errors='coerce')
             df_hist = df_hist.dropna(subset=['Date'])
-        except:
-            df_hist = pd.DataFrame(columns=HIST_COLS)
-    else:
-        df_hist = pd.DataFrame(columns=HIST_COLS)
+        except: df_hist = pd.DataFrame(columns=HIST_COLS)
+    else: df_hist = pd.DataFrame(columns=HIST_COLS)
     return df_hist
 
 def save_portfolio():
@@ -189,6 +190,8 @@ def save_portfolio():
 
 def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
     df_hist = load_state()
+    prev_total, prev_ese, prev_pf_idx, prev_ese_idx = (0.0, 0.0, 100.0, 100.0)
+    
     if not df_hist.empty:
         last = df_hist.iloc[-1]
         prev_total = last.get('Total', 0)
@@ -197,11 +200,7 @@ def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
         if isinstance(prev_pf_idx, pd.Series): prev_pf_idx = prev_pf_idx.iloc[0]
         prev_ese_idx = last.get('ESE_Index100', 100)
         if isinstance(prev_ese_idx, pd.Series): prev_ese_idx = prev_ese_idx.iloc[0]
-    else:
-        prev_total = total
-        prev_ese = 0.0
-        prev_pf_idx = 100.0
-        prev_ese_idx = 100.0
+    else: prev_total = total
 
     try: ese_price = df_pf.loc[df_pf['Ticker'].str.contains("ESE"), 'Prix_Actuel'].values[0]
     except: ese_price = 0.0
@@ -221,27 +220,17 @@ def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
     
     if today_str not in dates_str:
         new_row = {
-            "Date": today_str,
-            "Total": round(total, 2), 
-            "PEA": round(val_pea, 2), 
-            "BTC": round(val_btc, 2),
-            "Plus-value": round(pv_totale, 2), 
-            "Delta": round(delta, 2), 
-            "PV du Jour": round(pv_jour, 2), 
-            "ESE": round(ese_price, 2), 
-            "Flux (€)": 0, 
-            "PF_Return_TWR": f"{pf_ret*100:.2f}%".replace('.', ','),
-            "ESE_Return": f"{ese_ret*100:.2f}%".replace('.', ','),
-            "PF_Index100": round(pf_idx, 2), 
-            "ESE_Index100": round(ese_idx, 2),
-            "PF_Index100.1": round(pf_idx - 100, 2),
-            "ESE_Index100.1": round(ese_idx - 100, 2)
+            "Date": today_str, "Total": round(total, 2), "PEA": round(val_pea, 2), "BTC": round(val_btc, 2),
+            "Plus-value": round(pv_totale, 2), "Delta": round(delta, 2), "PV du Jour": round(pv_jour, 2), 
+            "ESE": round(ese_price, 2), "Flux (€)": 0, 
+            "PF_Return_TWR": f"{pf_ret*100:.2f}%".replace('.', ','), "ESE_Return": f"{ese_ret*100:.2f}%".replace('.', ','),
+            "PF_Index100": round(pf_idx, 2), "ESE_Index100": round(ese_idx, 2),
+            "PF_Index100.1": round(pf_idx - 100, 2), "ESE_Index100.1": round(ese_idx - 100, 2)
         }
         if os.path.exists(FILE_HISTORY):
              line = ",".join([str(v) for v in new_row.values()])
              with open(FILE_HISTORY, 'a') as f: f.write("\n" + line)
-        else:
-             pd.DataFrame([new_row]).to_csv(FILE_HISTORY, index=False, sep=',')
+        else: pd.DataFrame([new_row]).to_csv(FILE_HISTORY, index=False, sep=',')
         return True, delta
     return False, 0
 
@@ -305,25 +294,45 @@ def op_trade(sens, tick, q, p, nom=""):
     cur_p = df.loc[mask_a, 'PRU'].values[0]
     tot = q*p
     if sens=="Achat":
-        if cash < tot: return False, "Cash manquant"
+        if cash < tot: return False, "Manque Cash"
         new_q = cur_q + q
         new_p = ((cur_q*cur_p)+tot)/new_q
         df.loc[mask_a, 'Quantité'] = new_q
         df.loc[mask_a, 'PRU'] = new_p
         df.loc[mask_c, 'Quantité'] = cash - tot
     elif sens=="Vente":
-        if cur_q < q: return False, "Qté insuffisante"
+        if cur_q < q: return False, "Manque Titres"
         df.loc[mask_a, 'Quantité'] = cur_q - q
         df.loc[mask_c, 'Quantité'] = cash + tot
     st.session_state['portfolio_df'] = df
     save_portfolio()
     return True, "Succès"
 
-# --- 6. INTERFACE ---
+# --- 6. INTERFACE UTILISATEUR BENTO ---
 
-st.markdown("<h1 style='text-align: center; margin-bottom: 30px; font-weight: 300;'>HOLOGRAPHIC <span style='font-weight:700'>ESTATE</span></h1>", unsafe_allow_html=True)
+# En-tête Minimaliste
+col_logo, col_title = st.columns([1, 5])
+with col_title:
+    st.markdown("## 🏛️ Mon Empire Patrimonial")
+    st.caption(f"Dernière valorisation : {datetime.now().strftime('%d %B %Y • %H:%M')}")
 
-# KPI
+# --- HERO SECTION (Le Gros Chiffre) ---
+# On crée une "Box" spéciale pour le montant total
+st.markdown("""
+<div style="background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); 
+            padding: 30px; border-radius: 24px; border: 1px solid white; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center;">
+    <p style="color: #64748b; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin: 0;">Patrimoine Net</p>
+    <h1 style="font-size: 56px; margin: 0; background: -webkit-linear-gradient(45deg, #0f172a, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        """ + f"{total_pf:,.2f} €" + """
+    </h1>
+    <p style="color: #10b981; font-weight: 600; margin-top: 5px;">
+        """ + f"{volat_jour_live:+.2f} € (24h)" + """
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# Calculs
 MONTANT_INITIAL = 15450.00 
 DATE_DEBUT = datetime(2022, 1, 1)
 cash_dispo = df[df['Ticker']=='CASH']['Valo'].sum()
@@ -338,54 +347,37 @@ years = days_held / 365.25
 cagr = ((total_pf / MONTANT_INITIAL) ** (1/years) - 1) * 100 if years > 0 else 0
 rendement_annuel = perf_totale_pct / years if years > 0 else 0
 
-# BENTO LAYOUT
-st.markdown("#### 🔭 Vue Satellite")
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Portefeuille Net", f"{total_pf:,.2f} €")
-c2.metric("Montant Initial", f"{MONTANT_INITIAL:,.2f} €")
-# MODIFICATION ICI : Suppression du delta pourcentage pour la Trésorerie
-c3.metric("Trésorerie", f"{cash_dispo:,.2f} €")
-c4.metric("Variation Jour", f"{volat_jour_live:+,.2f} €")
+# --- GRID PRINCIPAL (BENTO) ---
+c1, c2, c3 = st.columns([1, 1, 1])
 
-st.write("")
+with c1:
+    st.markdown("##### 💰 Liquidité")
+    st.metric("Cash Dispo", f"{cash_dispo:,.2f} €", delta=None)
+    st.metric("Ratio Cash", f"{(cash_dispo/total_pf)*100:.1f} %")
 
-st.markdown("#### 🚀 Performance Actifs")
-c5, c6, c7, c8 = st.columns(4)
-c5.metric("Investi", f"{valo_investi:,.2f} €")
-c6.metric("Coût (PRU)", f"{cout_investi:,.2f} €")
-c7.metric("Perf. Actifs", f"{perf_actif_eur:+,.2f} €", f"{perf_actif_pct:+.2f} %")
-c8.metric("Perf. Totale", f"{perf_totale_eur:+,.2f} €", f"{perf_totale_pct:+.2f} %")
+with c2:
+    st.markdown("##### 🚀 Performance")
+    st.metric("Plus-Value Totale", f"{perf_totale_eur:+,.2f} €", f"{perf_totale_pct:+.2f} %")
+    st.metric("Plus-Value Actifs", f"{perf_actif_eur:+,.2f} €", f"{perf_actif_pct:+.2f} %")
 
-st.write("")
-
-col_kpi_time, col_graph_time = st.columns([1, 3])
-with col_kpi_time:
-    st.markdown("#### ⏳ Temps")
-    st.metric("Rendement/An", f"{rendement_annuel:.2f} %")
-    st.metric("CAGR", f"{cagr:.2f} %")
-
-with col_graph_time:
-    if not df_history_static.empty:
-        df_g = df_history_static.sort_values('Date').copy()
-        fig_mini = px.area(df_g, x='Date', y='Total', height=280)
-        fig_mini.update_layout(
-            margin=dict(l=0, r=0, t=0, b=0),
-            xaxis=dict(showgrid=False, title=None), 
-            yaxis=dict(showgrid=False, title=None, visible=False),
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            showlegend=False
-        )
-        fig_mini.update_traces(line_color='#0f172a', fillcolor='rgba(15, 23, 42, 0.05)')
-        st.plotly_chart(fig_mini, use_container_width=True)
+with c3:
+    st.markdown("##### ⏳ Temps & Objectifs")
+    st.metric("CAGR (Annuel)", f"{cagr:.2f} %")
+    
+    # Jauge de progression vers 100k (Exemple)
+    target = 100000
+    prog = min(total_pf / target, 1.0)
+    st.write(f"Objectif 100k€ : **{int(prog*100)}%**")
+    st.progress(prog)
 
 st.markdown("---")
 
-# SIDEBAR
+# --- SIDEBAR GESTION ---
 with st.sidebar:
     st.header("🕹️ Centre de Contrôle")
     with st.expander("💰 Trésorerie", expanded=True):
         mnt = st.number_input("Montant (€)", step=100.0)
-        if st.button("Valider Virement", type="secondary", use_container_width=True):
+        if st.button("Valider Virement", type="secondary"):
             if mnt > 0: operation_tresorerie(mnt); st.success("OK"); st.rerun()
     st.write("")
     with st.expander("📈 Trading", expanded=True):
@@ -398,22 +390,21 @@ with st.sidebar:
         else:
             tick = st.text_input("Symbole (ex: AI.PA)").upper()
             nom = st.text_input("Nom")
-        c1, c2 = st.columns(2)
-        qty = c1.number_input("Qté", min_value=0.00000001, step=0.01, format="%.8f")
-        price = c2.number_input("Prix", min_value=0.01, step=0.01, format="%.2f")
-        st.caption(f"Total: {qty*price:,.2f}€")
-        if st.button("Confirmer", type="primary", use_container_width=True):
+        c_q, c_p = st.columns(2)
+        qty = c_q.number_input("Qté", min_value=0.00000001, step=0.01, format="%.8f")
+        price = c_p.number_input("Prix", min_value=0.01, step=0.01, format="%.2f")
+        if st.button("Confirmer Ordre", type="primary"):
             ok, msg = op_trade(sens, tick, qty, price, nom)
             if ok: st.success(msg); st.rerun()
             else: st.error(msg)
     st.markdown("---")
     if st.button("💾 Sauvegarder Historique"):
         succes, d = add_history_point(total_pf, val_pea, val_btc, total_pv, df)
-        if succes: st.success(f"Sauvegardé ! Delta : {d:+.2f} €"); import time; time.sleep(1); st.rerun()
-        else: st.warning("Déjà fait aujourd'hui")
+        if succes: st.success(f"Delta : {d:+.2f} €"); import time; time.sleep(1); st.rerun()
+        else: st.warning("Déjà fait")
 
-# ONGLETS
-tab1, tab2, tab3, tab4 = st.tabs(["📋 Positions", "📊 Benchmarks", "🔮 Projection", "🔧 Admin"])
+# --- ONGLETS & VISUALISATION ---
+tab1, tab2, tab3, tab4 = st.tabs(["📋 Portefeuille", "📊 Graphiques", "🔮 Futur", "🔧 Admin"])
 
 with tab1:
     st.dataframe(df[['Nom','Quantité','PRU','Prix_Actuel','Valo','Var_Jour','Perf%']], hide_index=True, use_container_width=True,
@@ -425,71 +416,65 @@ with tab1:
 with tab2:
     if not df_history_static.empty:
         df_g = df_history_static.sort_values('Date').copy()
-        st.subheader("Performance vs S&P 500 (Base 100)")
-        try:
-            x_axis = df_g['Date']
-            idx_cols = [c for c in df_g.columns if "Index100" in c]
-            if len(idx_cols) >= 2:
-                y_pf = df_g[idx_cols[0]]
-                y_ese = df_g[idx_cols[1]]
-                fig_bench = go.Figure()
-                fig_bench.add_trace(go.Scatter(x=x_axis, y=y_pf, mode='lines', name='Portefeuille', line=dict(color='#0f172a', width=3)))
-                fig_bench.add_trace(go.Scatter(x=x_axis, y=y_ese, mode='lines', name='S&P 500', line=dict(color='#94a3b8', width=2, dash='dot')))
-                fig_bench.update_layout(template="simple_white", hovermode="x unified", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0,r=0,t=0,b=0))
-                st.plotly_chart(fig_bench, use_container_width=True)
-        except: st.error("Données indices manquantes")
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("Volatilité")
+        
+        col_g1, col_g2 = st.columns([2, 1])
+        
+        with col_g1:
+            st.caption("Trajectoire Patrimoniale")
+            fig_main = px.area(df_g, x='Date', y='Total')
+            fig_main.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_main.update_traces(line_color='#3b82f6', fillcolor='rgba(59, 130, 246, 0.1)')
+            st.plotly_chart(fig_main, use_container_width=True)
+            
+        with col_g2:
+            st.caption("Volatilité Quotidienne")
             if 'Delta' in df_g.columns:
                 colors = ['#10b981' if v >= 0 else '#ef4444' for v in df_g['Delta']]
                 fig_vol = go.Figure(go.Bar(x=df_g['Date'], y=df_g['Delta'], marker_color=colors))
                 fig_vol.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_vol, use_container_width=True)
-        with c2:
-            st.subheader("Plus-Value Cumulée")
-            fig_pv = px.area(df_g, x='Date', y='Plus-value')
-            fig_pv.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.1)')
-            fig_pv.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig_pv, use_container_width=True)
-    else: st.info("Historique vide.")
+                
+        st.caption("Benchmark S&P 500")
+        try:
+            x = df_g['Date']
+            col_idx = [c for c in df_g.columns if "Index100" in c]
+            if len(col_idx) >= 2:
+                fig_b = go.Figure()
+                fig_b.add_trace(go.Scatter(x=x, y=df_g[col_idx[0]], mode='lines', name='PF', line=dict(color='#0f172a', width=2)))
+                fig_b.add_trace(go.Scatter(x=x, y=df_g[col_idx[1]], mode='lines', name='S&P', line=dict(color='#94a3b8', width=2, dash='dot')))
+                fig_b.update_layout(template="simple_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0,r=0,t=0,b=0))
+                st.plotly_chart(fig_b, use_container_width=True)
+        except: pass
+    else: st.info("Pas d'historique.")
 
 with tab3:
-    st.subheader("Futur")
-    col1, col2 = st.columns([1,2])
-    with col1:
-        add = st.number_input("Apport/mois", 500)
-        r = st.slider("Rendement %", 2.0, 12.0, 8.0)
+    c_in, c_out = st.columns([1,3])
+    with c_in:
+        add = st.number_input("Apport Mensuel", 500)
+        r = st.slider("Taux %", 2.0, 12.0, 8.0)
         y = st.slider("Années", 5, 30, 15)
-    with col2:
+    with c_out:
         res = []
         c = total_pf
         for i in range(1, y+1):
-            c = c*(1+r/100) + (add*12)
+            c = c*(1+r/100)+(add*12)
             res.append({"Année": datetime.now().year+i, "Capital": c})
-        fig_proj = px.area(pd.DataFrame(res), x="Année", y="Capital")
-        fig_proj.update_layout(template="simple_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        fig_proj.update_traces(line_color='#0f172a', fillcolor='rgba(15, 23, 42, 0.1)')
-        st.plotly_chart(fig_proj, use_container_width=True)
+        fig_p = px.area(pd.DataFrame(res), x="Année", y="Capital")
+        fig_p.update_layout(template="simple_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        fig_p.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.1)')
+        st.plotly_chart(fig_p, use_container_width=True)
 
 with tab4:
-    st.warning("Zone Admin.")
-    file_choice = st.radio("Fichier", ["Portefeuille", "Historique"], horizontal=True)
-    if file_choice == "Portefeuille":
-        edited_df = st.data_editor(df, num_rows="dynamic")
-        if st.button("💾 Sauvegarder Portefeuille"):
-            edited_df.to_csv(FILE_PORTFOLIO, index=False, sep=';')
-            st.success("OK"); st.rerun()
+    st.warning("Admin Zone")
+    f_ch = st.radio("Fichier", ["Portefeuille", "Historique"], horizontal=True)
+    if f_ch == "Portefeuille":
+        ed = st.data_editor(df, num_rows="dynamic")
+        if st.button("Save PF"): ed.to_csv(FILE_PORTFOLIO, index=False, sep=';'); st.success("OK"); st.rerun()
     else:
         if os.path.exists(FILE_HISTORY):
-            try:
-                with open(FILE_HISTORY, 'r') as f: raw = f.read()
-                df_h_edit = pd.read_csv(io.StringIO(raw), sep=',', engine='python')
-                edited_hist = st.data_editor(df_h_edit, num_rows="dynamic")
-                if st.button("💾 Sauvegarder Historique"):
-                    if pd.api.types.is_datetime64_any_dtype(edited_hist['Date']):
-                        edited_hist['Date'] = edited_hist['Date'].dt.strftime('%d/%m/%Y')
-                    edited_hist.to_csv(FILE_HISTORY, index=False, sep=',', quotechar='"', quoting=1)
-                    st.success("OK"); st.rerun()
-            except Exception as e: st.error(f"Erreur: {e}")
+            with open(FILE_HISTORY, 'r') as f: raw = f.read()
+            h_ed = st.data_editor(pd.read_csv(io.StringIO(raw), sep=',', engine='python'), num_rows="dynamic")
+            if st.button("Save Hist"):
+                if pd.api.types.is_datetime64_any_dtype(h_ed['Date']): h_ed['Date'] = h_ed['Date'].dt.strftime('%d/%m/%Y')
+                h_ed.to_csv(FILE_HISTORY, index=False, sep=',', quotechar='"', quoting=1)
+                st.success("OK"); st.rerun()
