@@ -373,12 +373,6 @@ with c2:
 with c3:
     st.markdown("##### ⏳ Temps & Objectifs")
     st.metric("CAGR (Annuel)", f"{cagr:.2f} %")
-    
-    # Jauge de progression vers 100k (Exemple)
-    target = 100000
-    prog = min(total_pf / target, 1.0)
-    st.write(f"Objectif 100k€ : **{int(prog*100)}%**")
-    st.progress(prog)
 
 st.markdown("---")
 
