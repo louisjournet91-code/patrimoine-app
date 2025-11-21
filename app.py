@@ -20,6 +20,8 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
     .stTabs [data-baseweb="tab"] { background-color: #ffffff; border: 1px solid #e2e8f0; }
     .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #0f172a; color: white; }
+    .cash-module { border-left: 5px solid #10b981; padding-left: 10px; }
+    .trade-module { border-left: 5px solid #0f172a; padding-left: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -79,8 +81,9 @@ def load_state():
     if os.path.exists(FILE_HISTORY):
         try:
             df_hist = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
-            # Nettoyage
-            for col in ['Total', 'PEA', 'BTC', 'Plus-value']:
+            # Nettoyage de TOUTES les colonnes numériques
+            cols_num = ['Total', 'PEA', 'BTC', 'Plus-value', 'PV_du_Jour', 'PF_Index100', 'ESE_Index100']
+            for col in cols_num:
                 if col in df_hist.columns:
                     df_hist[col] = df_hist[col].apply(safe_float)
             
@@ -96,7 +99,7 @@ def load_state():
 def save_portfolio():
     st.session_state['portfolio_df'].to_csv(FILE_PORTFOLIO, index=False, sep=';')
 
-def add_history_point(total, val_pea, val_btc, pv_totale):
+def add_history_point(total, val_pea, val_btc, pv_totale, pv_jour_live):
     # Relecture propre avant ajout
     if os.path.exists(FILE_HISTORY):
         try: df = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
@@ -104,17 +107,23 @@ def add_history_point(total, val_pea, val_btc, pv_totale):
     else:
         df = pd.DataFrame(columns=HIST_COLS)
         
-    # Standardisation Date pour comparaison
+    # Standardisation Date
     df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
     today = pd.to_datetime(datetime.now().date())
     
-    # Si la date d'aujourd'hui n'est PAS dans la colonne Date
     if not (df['Date'] == today).any():
+        # Récupération des derniers index connus pour continuité
+        last_pf_idx = df['PF_Index100'].iloc[-1] if not df.empty and 'PF_Index100' in df else 100
+        last_ese_idx = df['ESE_Index100'].iloc[-1] if not df.empty and 'ESE_Index100' in df else 100
+
         new_data = {
-            "Date": today, # On stocke en objet datetime, pandas gèrera le format
+            "Date": today,
             "Total": round(total, 2), "PEA": round(val_pea, 2), "BTC": round(val_btc, 2),
-            "Plus-value": round(pv_totale, 2), "Delta": 0, "PV_du_Jour": 0, "ESE": 0, 
-            "Flux_(€)": 0, "PF_Return_TWR": 0, "ESE_Return": 0, "PF_Index100": 0, "ESE_Index100": 0
+            "Plus-value": round(pv_totale, 2), 
+            "PV_du_Jour": round(pv_jour_live, 2), # Volatilité jour
+            "PF_Index100": last_pf_idx, # Note: Le calcul TWR exact demande plus de logique, on maintient l'existant
+            "ESE_Index100": last_ese_idx,
+            "Delta": 0, "ESE": 0, "Flux_(€)": 0, "PF_Return_TWR": 0, "ESE_Return": 0
         }
         new_row = pd.DataFrame([new_data])
         df = pd.concat([df, new_row], ignore_index=True)
@@ -148,15 +157,18 @@ df = st.session_state['portfolio_df'].copy()
 market = get_prices(df['Ticker'].unique())
 
 df['Prix'] = df['Ticker'].apply(lambda x: market.get(x, {}).get("cur", df.loc[df['Ticker']==x, 'PRU'].values[0]))
+df['Prev'] = df['Ticker'].apply(lambda x: market.get(x, {}).get("prev", df.loc[df['Ticker']==x, 'PRU'].values[0]))
 df['Valo'] = df['Quantité'] * df['Prix']
 df['Investi'] = df['Quantité'] * df['PRU']
 df['PV'] = df['Valo'] - df['Investi']
 df['Perf%'] = df.apply(lambda x: ((x['Prix']-x['PRU'])/x['PRU']*100) if x['PRU']>0 else 0, axis=1)
+df['Var_Jour'] = df['Valo'] - (df['Quantité'] * df['Prev'])
 
 val_btc = df[df['Ticker'].str.contains("BTC")]['Valo'].sum()
 val_pea = df[~df['Ticker'].str.contains("BTC")]['Valo'].sum()
 total_pf = df['Valo'].sum()
 total_pv = df['PV'].sum()
+volat_jour_live = df['Var_Jour'].sum() # La volatilité (P&L) du jour en live
 
 # --- 5. OPÉRATIONS ---
 def op_cash(amount):
@@ -208,8 +220,8 @@ st.caption(f"Valo Live : {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Total", f"{total_pf:,.2f} €")
 k2.metric("PEA", f"{val_pea:,.2f} €")
-k3.metric("BTC", f"{val_btc:,.2f} €")
-k4.metric("PV Latente", f"{total_pv:+,.2f} €")
+k3.metric("PV Latente", f"{total_pv:+,.2f} €")
+k4.metric("Volatilité Jour", f"{volat_jour_live:+,.2f} €", help="Gain/Perte depuis la clôture d'hier")
 
 st.markdown("---")
 
@@ -222,7 +234,7 @@ with st.sidebar:
             if st.button("Valider"): op_cash(v); st.rerun()
         else:
             tk = st.selectbox("Actif", [t for t in df['Ticker'].unique() if t!="CASH"])
-            c1,c2 = st.columns(2)
+            c1, c2 = st.columns(2)
             q = c1.number_input("Qte", 0.01)
             p = c2.number_input("Prix", 0.01)
             if st.button("Valider"): 
@@ -230,40 +242,56 @@ with st.sidebar:
                 if ok: st.success(m); st.rerun()
                 else: st.error(m)
     st.markdown("---")
-    if st.button("💾 Sauvegarder Point Historique"):
-        if add_history_point(total_pf, val_pea, val_btc, total_pv): st.success("Sauvegardé")
+    if st.button("💾 Sauvegarder Historique"):
+        if add_history_point(total_pf, val_pea, val_btc, total_pv, volat_jour_live): st.success("Sauvegardé")
         else: st.warning("Déjà fait ajd")
         st.rerun()
 
-tab1, tab2, tab3 = st.tabs(["Positions", "Historique", "Projection"])
+tab1, tab2, tab3 = st.tabs(["Positions", "Analyse & Benchmarks", "Projection"])
 
 with tab1:
-    st.dataframe(df[['Nom','Quantité','PRU','Prix','Valo','Perf%']], hide_index=True, use_container_width=True)
+    st.dataframe(df[['Nom','Quantité','PRU','Prix','Valo','Var_Jour','Perf%']], hide_index=True, use_container_width=True,
+                 column_config={"Perf%": st.column_config.ProgressColumn(min_value=-30, max_value=30, format="%.2f %%"),
+                                "Var_Jour": st.column_config.NumberColumn(format="%+.2f €")})
 
 with tab2:
     if not df_history_static.empty:
-        # Préparation Graphique
-        df_graph = df_history_static.copy()
+        df_g = df_history_static.sort_values('Date').copy()
         
-        # Point Live
-        live = pd.DataFrame([{"Date": pd.to_datetime(datetime.now().date()), "Total": total_pf}])
+        # --- GRAPHIQUE 1 : BENCHMARK INDEX 100 ---
+        st.subheader("Performance vs S&P 500 (Base 100)")
+        fig_bench = go.Figure()
+        # Ligne Portefeuille
+        fig_bench.add_trace(go.Scatter(x=df_g['Date'], y=df_g['PF_Index100'], mode='lines', name='Mon Portefeuille', line=dict(color='#0f172a', width=3)))
+        # Ligne Benchmark ESE
+        fig_bench.add_trace(go.Scatter(x=df_g['Date'], y=df_g['ESE_Index100'], mode='lines', name='S&P 500 (ESE)', line=dict(color='#94a3b8', width=2, dash='dot')))
+        fig_bench.update_layout(template="simple_white", hovermode="x unified")
+        st.plotly_chart(fig_bench, use_container_width=True)
+
+        c1, c2 = st.columns(2)
         
-        # Concaténation et tri par date (CRITIQUE pour le tracé)
-        df_final = pd.concat([df_graph[["Date", "Total"]], live], ignore_index=True)
-        df_final = df_final.sort_values('Date') 
-        
-        # GRAPHIQUE (Correction fillcolor)
-        fig = px.area(df_final, x='Date', y='Total', title="Trajectoire Totale")
-        # LA CORRECTION EST ICI : fillcolor (pas fill_color)
-        fig.update_traces(line_color='#0f172a', fillcolor='rgba(15, 23, 42, 0.1)')
-        fig.update_layout(template="simple_white")
-        st.plotly_chart(fig, use_container_width=True)
-        
-        st.dataframe(df_history_static.sort_values('Date', ascending=False).head(5), use_container_width=True)
+        # --- GRAPHIQUE 2 : HISTORIQUE PLUS-VALUE ---
+        with c1:
+            st.subheader("Évolution Plus-Value Latente")
+            fig_pv = px.area(df_g, x='Date', y='Plus-value')
+            fig_pv.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.1)')
+            fig_pv.update_layout(template="simple_white")
+            st.plotly_chart(fig_pv, use_container_width=True)
+            
+        # --- GRAPHIQUE 3 : VOLATILITÉ (PV DU JOUR) ---
+        with c2:
+            st.subheader("Volatilité Quotidienne (P&L Jour)")
+            # Couleurs dynamiques (Vert si > 0, Rouge si < 0)
+            colors = ['#10b981' if v >= 0 else '#ef4444' for v in df_g['PV_du_Jour']]
+            fig_vol = go.Figure(go.Bar(x=df_g['Date'], y=df_g['PV_du_Jour'], marker_color=colors))
+            fig_vol.update_layout(template="simple_white", yaxis_title="Var. Journalière (€)")
+            st.plotly_chart(fig_vol, use_container_width=True)
+            
     else:
-        st.info("Historique vide.")
+        st.info("Historique vide. Vérifiez que 'historique.csv' contient bien les colonnes PF_Index100 et ESE_Index100.")
 
 with tab3:
+    st.subheader("Futur")
     col1, col2 = st.columns([1,2])
     with col1:
         add = st.number_input("Apport/mois", 500)
