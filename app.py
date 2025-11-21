@@ -265,7 +265,6 @@ df['Var_Jour'] = df['Valo'] - (df['Quantité'] * df['Prev'])
 
 @st.cache_data(ttl=3600)
 def get_market_monitor():
-    # Liste exacte
     targets = {
         "INDEX CBOE:VIX": "^VIX",
         "CAC 40": "^FCHI",
@@ -281,50 +280,46 @@ def get_market_monitor():
     
     try:
         tickers_list = list(targets.values())
-        # On charge les données
         hist = yf.download(tickers_list, period="3mo", progress=False)['Close']
         
         for name, ticker in targets.items():
             if ticker in hist.columns:
-                # Nettoyage et conversion explicite en nombres (float) pour éviter les erreurs de virgule
+                # Conversion en float pour éviter les bugs
                 series = hist[ticker].dropna().astype(float)
                 
                 if len(series) >= 22:
-                    # Dernier prix connu (Live ou Clôture hier)
-                    current = float(series.iloc[-1])
-                    # Clôture précédente (pour perf jour)
-                    prev = float(series.iloc[-2])
-                    # Il y a exactement ~21 jours ouvrés de bourse dans 1 mois
-                    month_ago = float(series.iloc[-21])
+                    current = series.iloc[-1]
+                    prev = series.iloc[-2]
+                    month_ago = series.iloc[-22] # ~1 mois ouvré
                     
-                    # Calcul des variations (Mathématique pure)
-                    # Résultat 0.05 donnera 5% à l'affichage
-                    if prev != 0: perf_d = (current - prev) / prev
+                    # --- CORRECTION MAJEURE ICI : MULTIPLICATION PAR 100 ---
+                    # (Valeur Finale - Valeur Initiale) / Valeur Initiale * 100
+                    
+                    if prev != 0: 
+                        perf_d = ((current - prev) / prev) * 100 
                     else: perf_d = 0.0
                         
-                    if month_ago != 0: perf_m = (current - month_ago) / month_ago
+                    if month_ago != 0: 
+                        perf_m = ((current - month_ago) / month_ago) * 100
                     else: perf_m = 0.0
                     
                     data.append({
                         "Indice": name,
                         "Ticker": ticker,
                         "Prix actuel": current,
-                        "Perf. du Jour": perf_d,
-                        "Perf 1 Mois": perf_m
+                        "Perf. du Jour": perf_d, # Sera par ex 5.50 (pour 5.5%)
+                        "Perf 1 Mois": perf_m    # Sera par ex 40.2 (pour 40.2%)
                     })
             else:
-                # Cas où la donnée est absente
                 data.append({
                     "Indice": name, "Ticker": ticker, 
                     "Prix actuel": 0.0, "Perf. du Jour": 0.0, "Perf 1 Mois": 0.0
                 })
                 
-    except Exception as e:
-        st.error(f"Erreur données marché: {e}")
+    except Exception as e: st.error(e)
     
-    # On retourne le DataFrame avec les colonnes dans l'ordre strict
-    df_m = pd.DataFrame(data)
-    return df_m[["Indice", "Ticker", "Prix actuel", "Perf. du Jour", "Perf 1 Mois"]]
+    df = pd.DataFrame(data)
+    return df[["Indice", "Ticker", "Prix actuel", "Perf. du Jour", "Perf 1 Mois"]]
 
 # --- CALCULS TOTAUX ---
 val_btc = df[df['Ticker'].str.contains("BTC")]['Valo'].sum()
@@ -514,8 +509,7 @@ with tab2:
         except: pass
     else: st.info("Pas d'historique.")
 with tab2:
-    # --- MONITOR DE MARCHÉ ---
-    st.subheader("Données journalière et mensuelle")
+   st.subheader("Données journalière et mensuelle")
     
     df_market = get_market_monitor()
     
@@ -528,6 +522,7 @@ with tab2:
                 "Indice": st.column_config.TextColumn("Indice", width="medium"),
                 "Ticker": st.column_config.TextColumn("Ticker", width="small"),
                 "Prix actuel": st.column_config.NumberColumn("Prix actuel", format="%.2f"),
+                # Le format ajoute juste le % visuellement
                 "Perf. du Jour": st.column_config.NumberColumn("Perf. du Jour", format="%.2f %%"),
                 "Perf 1 Mois": st.column_config.NumberColumn("Perf 1 Mois", format="%.2f %%")
             }
