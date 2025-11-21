@@ -101,18 +101,17 @@ def save_portfolio():
 
 def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
     """
-    Reproduit la logique exacte de votre script Google Apps Script :
-    1. Récupère la PV de la dernière sauvegarde pour calculer le Delta.
-    2. Isole la valeur de l'ESE (C16 dans votre ancien fichier).
-    3. Sauvegarde le tout.
+    Sauvegarde intelligente avec calculs financiers (TWR, Indices)
+    Reproduit exactement vos formules Excel.
     """
     
-    # 1. Chargement de l'historique existant
+    # 1. Chargement de l'historique précédent pour comparaison
     if os.path.exists(FILE_HISTORY):
         try: 
             df_hist = pd.read_csv(FILE_HISTORY, sep=';', engine='python')
-            # Nettoyage rapide pour lecture
-            for col in ['Plus-value']:
+            # Conversion des colonnes critiques en numérique
+            cols_calc = ['Total', 'ESE', 'PF_Index100', 'ESE_Index100', 'Plus-value']
+            for col in cols_calc:
                 if col in df_hist.columns:
                     df_hist[col] = df_hist[col].apply(safe_float)
         except: 
@@ -120,48 +119,101 @@ def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
     else:
         df_hist = pd.DataFrame(columns=HIST_COLS)
 
-    # 2. Calcul du DELTA (Comme dans votre script : value5 - value6)
-    last_pv = 0.0
+    # 2. Récupération des valeurs de la VEILLE (J-1)
     if not df_hist.empty:
-        # On prend la dernière Plus-Value enregistrée
-        last_pv = df_hist['Plus-value'].iloc[-1]
+        last_row = df_hist.iloc[-1]
+        prev_total = float(last_row['Total'])
+        prev_ese = float(last_row['ESE'])
+        prev_pf_idx = float(last_row['PF_Index100'])
+        prev_ese_idx = float(last_row['ESE_Index100'])
+        prev_pv = float(last_row['Plus-value'])
+    else:
+        # Initialisation si c'est le tout premier jour
+        prev_total = total
+        prev_ese = 0.0
+        prev_pf_idx = 100.0
+        prev_ese_idx = 100.0
+        prev_pv = 0.0
+
+    # 3. Récupération données DU JOUR (J)
     
-    delta = pv_totale - last_pv
-
-    # 3. Récupération valeur ESE (Équivalent de votre cellule C16)
-    # On cherche la ligne ESE.PA et on prend son prix actuel
+    # Prix ESE actuel (Recherche dans le portefeuille)
     try:
-        ese_price = df_pf.loc[df_pf['Ticker'] == 'ESE.PA', 'Prix_Actuel'].values[0]
+        ese_price = df_pf.loc[df_pf['Ticker'].str.contains("ESE"), 'Prix_Actuel'].values[0]
     except:
-        ese_price = 0.0 # Sécurité si ESE n'est pas trouvé
+        ese_price = 0.0 # Sécurité
 
-    # 4. Préparation de la ligne à sauvegarder
+    # Flux (Pour l'instant forcé à 0 comme demandé, mais prêt pour le futur)
+    flux = 0.0 
+
+    # 4. CALCULS DES INDICATEURS (VOS FORMULES EXCEL)
+    
+    # Delta (Différence de PV)
+    delta = pv_totale - prev_pv
+
+    # PV du Jour (Volatilité) = Variation brute du total si pas de flux
+    pv_jour = total - prev_total - flux
+
+    # J: PF_Return_TWR = (Total - Prev_Total - Flux) / (Prev_Total + Flux)
+    denom = prev_total + flux
+    if denom != 0 and not df_hist.empty:
+        pf_return = (total - prev_total - flux) / denom
+    else:
+        pf_return = 0.0
+
+    # K: ESE_Return = (ESE_Now - ESE_Prev) / ESE_Prev
+    if prev_ese != 0 and ese_price != 0 and not df_hist.empty:
+        ese_return = (ese_price - prev_ese) / prev_ese
+    else:
+        ese_return = 0.0
+
+    # L: PF_Index100 = Prev_Index * (1 + PF_Return)
+    pf_index100 = prev_pf_idx * (1 + pf_return)
+
+    # M: ESE_Index100 = Prev_Index * (1 + ESE_Return)
+    ese_index100 = prev_ese_idx * (1 + ese_return)
+
+    # N & O: Performance absolue (Index - 100)
+    pf_perf_abs = pf_index100 - 100
+    ese_perf_abs = ese_index100 - 100
+
+    # 5. Sauvegarde
     today = datetime.now().strftime("%d/%m/%Y")
     
-    # Vérification anti-doublon pour la journée
+    # On évite les doublons de date
     if today not in df_hist['Date'].astype(str).values:
         new_data = {
             "Date": today,
-            "Total": round(total, 2),       # Votre B1
-            "PEA": round(val_pea, 2),       # Votre D23
-            "BTC": round(val_btc, 2),       # Votre D24
-            "Plus-value": round(pv_totale, 2), # Votre B6
-            "Delta": round(delta, 2),       # Votre Calcul (J - J-1)
-            "ESE": round(ese_price, 2),     # Votre C16
-            "Flux_(€)": 0,                  # Votre Colonne I forcée à 0
-            
-            # Champs techniques maintenus à 0 ou calculés plus tard
-            "PV_du_Jour": 0, 
-            "PF_Return_TWR": 0, "ESE_Return": 0, 
-            "PF_Index100": 0, "ESE_Index100": 0
+            "Total": round(total, 2),
+            "PEA": round(val_pea, 2),
+            "BTC": round(val_btc, 2),
+            "Plus-value": round(pv_totale, 2),
+            "Delta": round(delta, 2),
+            "PV_du_Jour": round(pv_jour, 2),
+            "ESE": round(ese_price, 2),
+            "Flux_(€)": round(flux, 2),
+            "PF_Return_TWR": round(pf_return, 4),     # Ex: 0.0512
+            "ESE_Return": round(ese_return, 4),       # Ex: -0.0312
+            "PF_Index100": round(pf_index100, 2),     # Ex: 105.12
+            "ESE_Index100": round(ese_index100, 2),   # Ex: 99.50
+            # Les deux dernières colonnes (souvent nommées .1 dans pandas si doublon de nom)
+            "PF_Index100.1": round(pf_perf_abs, 2),   # Ex: 5.12
+            "ESE_Index100.1": round(ese_perf_abs, 2)  # Ex: -0.50
         }
         
-        new_row = pd.DataFrame([new_data])
-        df_final = pd.concat([df_hist, new_row], ignore_index=True)
+        # Astuce : On renomme les clés du dictionnaire pour matcher les colonnes CSV si besoin
+        # Mais Pandas gère l'ordre si les colonnes existent déjà.
         
-        # Sauvegarde avec point-virgule
+        new_row = pd.DataFrame([new_data])
+        
+        # Alignement des colonnes pour éviter les erreurs
+        if not df_hist.empty:
+            # On s'assure que new_row a les mêmes colonnes que df_hist (même les .1)
+            new_row.columns = df_hist.columns 
+            
+        df_final = pd.concat([df_hist, new_row], ignore_index=True)
         df_final.to_csv(FILE_HISTORY, index=False, sep=';')
-        return True, delta # On retourne le delta pour l'afficher à l'utilisateur
+        return True, delta
     
     return False, 0
 
