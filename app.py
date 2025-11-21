@@ -263,11 +263,21 @@ df['PV'] = df['Valo'] - df['Investi']
 df['Perf%'] = df.apply(lambda x: ((x['Prix_Actuel']-x['PRU'])/x['PRU']*100) if x['PRU']>0 else 0, axis=1)
 df['Var_Jour'] = df['Valo'] - (df['Quantité'] * df['Prev'])
 
+# --- CALCULS TOTAUX ---
 val_btc = df[df['Ticker'].str.contains("BTC")]['Valo'].sum()
 val_pea = df[~df['Ticker'].str.contains("BTC")]['Valo'].sum()
 total_pf = df['Valo'].sum()
 total_pv = df['PV'].sum()
-volat_jour_live = df['Var_Jour'].sum()
+
+# --- MODIFICATION : CALCUL DE LA VARIATION (Total Actuel - Total Historique) ---
+if not df_history_static.empty:
+    # On récupère le dernier montant total enregistré dans le CSV (La veille)
+    dernier_total_historique = df_history_static.iloc[-1]['Total']
+    
+    # Calcul : Aujourd'hui - Veille
+    volat_jour_live = total_pf - dernier_total_historique
+else:
+    volat_jour_live = 0.0
 
 def op_cash(amount):
     df = st.session_state['portfolio_df']
