@@ -14,16 +14,15 @@ st.set_page_config(page_title="Tableau de Bord", layout="wide", page_icon="💎"
 with st.sidebar:
     st.header("⚙️ Préférences")
     dark_mode = st.toggle("🌙 Mode Sombre", value=True)
-    st.caption("Tableau de Bord V.1.1 (Glass Edition)")
+    st.caption("Tableau de Bord V.1.2")
 
 # Définition des palettes selon le mode
 if dark_mode:
     # --- THEME MIDNIGHT ONYX (SOMBRE) ---
     bg_color = "#0f172a"
     text_color = "#f8fafc"
-    # MODIFICATION ICI : Transparence augmentée (0.7 -> 0.3)
     card_bg = "rgba(30, 41, 59, 0.3)" 
-    border_color = "rgba(255, 255, 255, 0.05)" # Bordure plus subtile
+    border_color = "rgba(255, 255, 255, 0.05)"
     chart_line_color = "#38bdf8"
     chart_fill_color = "rgba(56, 189, 248, 0.15)"
     metric_gradient = "linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)"
@@ -44,7 +43,6 @@ else:
     # --- THEME LIQUID DAYLIGHT (CLAIR) ---
     bg_color = "#f0f4f8"
     text_color = "#1e293b"
-    # MODIFICATION ICI : Transparence augmentée (0.6 -> 0.3)
     card_bg = "rgba(255, 255, 255, 0.3)"
     border_color = "rgba(255, 255, 255, 0.4)"
     chart_line_color = "#2563eb"
@@ -74,7 +72,7 @@ st.markdown(f"""
     {css_theme}
 
     /* --- STYLE GLASS UNIFIÉ --- */
-    /* Conteneurs standards (KPIs, Charts) */
+    /* Conteneurs standards */
     div[data-testid="stMetric"], 
     div.stPlotlyChart, 
     div.stExpander {{
@@ -90,12 +88,11 @@ st.markdown(f"""
 
     /* SPÉCIFIQUE DATAFRAME : PLUS TRANSPARENT */
     div[data-testid="stDataFrame"] {{
-        background: transparent !important; /* Fond totalement transparent */
-        border: none !important; /* Pas de bordure cadre */
-        box-shadow: none !important; /* Pas d'ombre pour effet "flottant" */
+        background: transparent !important; 
+        border: none !important; 
+        box-shadow: none !important; 
     }}
     
-    /* On force la transparence à l'intérieur du tableau */
     div[data-testid="stDataFrame"] > div {{
         background: {card_bg} !important;
         border-radius: 24px;
@@ -248,16 +245,17 @@ else:
 st.markdown("## 🏛️ Tableau de Bord")
 st.caption(f"Valorisation en temps réel • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
+# Hero Section Modifiée
 st.markdown(f"""
 <div style="background: linear-gradient(135deg, {bg_color} 0%, {card_bg} 100%); 
             padding: 30px; border-radius: 24px; border: 1px solid {border_color}; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.05); text-align: center; margin-bottom: 25px;">
-    <p style="color: {text_color}; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin: 0; opacity: 0.7;">Fortune Nette</p>
+    <p style="color: {text_color}; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin: 0; opacity: 0.7;">Portefeuille</p>
     <h1 style="font-size: 64px; margin: 5px 0; background: {metric_gradient}; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
         {TOTAL_ACTUEL:,.2f} €
     </h1>
     <p style="color: {'#10b981' if delta_day >= 0 else '#ef4444'}; font-weight: 600; font-size: 18px;">
-        {delta_day:+.2f} € ({delta_pct:+.2f}%) <span style="color: {text_color}; opacity: 0.5; font-size: 14px;">• Depuis minuit</span>
+        {delta_day:+.2f} € ({delta_pct:+.2f}%) <span style="color: {text_color}; opacity: 0.5; font-size: 14px;">• sur 24h</span>
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -267,7 +265,7 @@ col1.metric("Cash Disponible", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_AC
 col2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%")
 col3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 
-# --- SECTION 1 : PORTEFEUILLE (TRANSPARENT) ---
+# --- SECTION 1 : PORTEFEUILLE ---
 st.markdown("<div class='section-header'>📋 Détail du Portefeuille</div>", unsafe_allow_html=True)
 
 # Préparation
@@ -278,7 +276,7 @@ def style_pos_neg(v):
     color = '#10b981' if v >= 0 else '#ef4444'
     return f'color: {color}; font-weight: 700;'
 
-# Style Pandas pur (Gère le formatage et les couleurs)
+# Style Pandas pur
 styled_df = df_display.style.format({
     "Quantité": "{:.4f}",
     "PRU": "{:.2f} €",
@@ -288,7 +286,6 @@ styled_df = df_display.style.format({
     "Var_24h_€": "{:+.2f} €"
 }).map(style_pos_neg, subset=['Perf_%', 'Var_24h_€'])
 
-# Affichage simple sans config colonne (conflit évité)
 st.dataframe(
     styled_df,
     hide_index=True,
