@@ -7,83 +7,128 @@ from datetime import datetime
 import os
 import io
 
-# --- 1. CONFIGURATION & DESIGN SYSTEM "LIQUID BENTO" ---
-st.set_page_config(page_title="Gestion Patrimoniale Premium", layout="wide", page_icon="💎")
+# --- 1. CONFIGURATION ---
+st.set_page_config(page_title="Holographic Estate", layout="wide", page_icon="💎")
 
-# CSS AVANCÉ : GLASSMORPHISM & BENTO GRID
+# --- 2. DESIGN SYSTEM "HOLOGRAPHIC LIQUID" (CSS AVANCÉ) ---
 st.markdown("""
 <style>
-    /* FOND GLOBAL : Dégradé subtil et maillé pour effet de profondeur */
+    /* IMPORT POLICE GOOGLE */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+
+    /* FOND FLUIDE ANIMÉ (Mesh Gradient) */
     .stApp {
-        background: radial-gradient(circle at 10% 20%, rgb(242, 246, 252) 0%, rgb(224, 233, 245) 90%);
-        font-family: 'Inter', sans-serif;
-    }
-
-    /* TITRES */
-    h1, h2, h3 {
+        background-color: #f8fafc;
+        background-image: 
+            radial-gradient(at 0% 0%, hsla(253,16%,90%,1) 0, transparent 50%), 
+            radial-gradient(at 50% 0%, hsla(225,39%,90%,1) 0, transparent 50%), 
+            radial-gradient(at 100% 0%, hsla(339,49%,90%,1) 0, transparent 50%),
+            radial-gradient(at 0% 100%, hsla(280,100%,93%,1) 0, transparent 50%),
+            radial-gradient(at 100% 100%, hsla(180,100%,90%,1) 0, transparent 50%);
+        font-family: 'Outfit', sans-serif;
         color: #1e293b;
-        font-weight: 700;
-        letter-spacing: -0.5px;
     }
 
-    /* EFFET LIQUID GLASS (Le cœur du design) */
-    /* Appliqué aux Métriques, Dataframes, et Graphiques */
+    /* LE VERRE LIQUIDE (Holographic Cards) */
+    /* S'applique aux Métriques, Tableaux, Graphiques */
     div[data-testid="stMetric"], div[data-testid="stDataFrame"], div.stPlotlyChart, div.stForm {
-        background: rgba(255, 255, 255, 0.65) !important; /* Blanc semi-transparent */
-        backdrop-filter: blur(16px); /* Flou d'arrière-plan (Effet Verre) */
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.8); /* Bordure subtile blanche */
-        border-radius: 24px; /* Arrondis "Bento" prononcés */
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05); /* Ombre douce colorée */
+        background: rgba(255, 255, 255, 0.45); /* Plus transparent */
+        backdrop-filter: blur(24px); /* Flou intense */
+        -webkit-backdrop-filter: blur(24px);
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.9); /* Bordure blanche éclatante */
+        box-shadow: 
+            0 4px 30px rgba(0, 0, 0, 0.05), /* Ombre douce */
+            inset 0 0 20px rgba(255, 255, 255, 0.6); /* Reflet interne (Glass effect) */
         padding: 20px !important;
-        transition: transform 0.2s ease;
+        transition: all 0.3s ease;
     }
 
-    /* Effet de survol sur les cartes */
+    /* Effet de survol (Levitation) */
     div[data-testid="stMetric"]:hover, div.stPlotlyChart:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.1);
+        transform: translateY(-5px) scale(1.01);
+        box-shadow: 0 20px 40px rgba(31, 38, 135, 0.15);
         border: 1px solid rgba(255, 255, 255, 1);
+        background: rgba(255, 255, 255, 0.65);
     }
 
-    /* ONGLETS MODERNISÉS */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-        background-color: transparent;
-        padding-bottom: 10px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 45px;
-        background-color: rgba(255, 255, 255, 0.5);
-        border-radius: 12px;
-        color: #64748b;
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        font-weight: 600;
-        backdrop-filter: blur(4px);
-    }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #0f172a;
-        color: #ffffff;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
-    }
-
-    /* Sidebar plus propre */
-    section[data-testid="stSidebar"] {
-        background-color: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(20px);
-        border-right: 1px solid rgba(255, 255, 255, 0.5);
+    /* TYPOGRAPHIE */
+    h1, h2, h3 {
+        color: #0f172a;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.05);
     }
     
-    /* Couleurs spécifiques pour les valeurs positives/négatives dans les métriques */
+    /* Métriques (Chiffres) */
     div[data-testid="stMetricValue"] {
-        font-size: 28px;
+        font-size: 32px;
+        background: -webkit-linear-gradient(45deg, #0f172a, #334155);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         font-weight: 700;
-        color: #0f172a;
     }
+    div[data-testid="stMetricLabel"] {
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* SIDEBAR (Paneau de verre givré) */
+    section[data-testid="stSidebar"] {
+        background-color: rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(30px);
+        border-right: 1px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 5px 0 30px rgba(0,0,0,0.02);
+    }
+
+    /* ONGLETS FLOTTANTS */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 15px;
+        background-color: transparent;
+        padding: 10px;
+        margin-bottom: 20px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        background-color: rgba(255, 255, 255, 0.4);
+        border-radius: 16px;
+        color: #475569;
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        transition: all 0.2s;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: rgba(255, 255, 255, 0.8);
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        color: #0f172a;
+        border: 1px solid #ffffff;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    /* BOUTONS FLUIDES */
+    div.stButton > button {
+        border-radius: 12px;
+        background: linear-gradient(90deg, #0f172a 0%, #334155 100%);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s;
+    }
+    div.stButton > button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 5px 15px rgba(15, 23, 42, 0.2);
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CONSTANTES & FICHIERS ---
+# --- 3. CONSTANTES & FICHIERS ---
 
 FILE_PORTFOLIO = 'portefeuille.csv'
 FILE_HISTORY = 'historique.csv'
@@ -102,7 +147,7 @@ INITIAL_PORTFOLIO = {
     "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
 }
 
-# --- 3. FONCTIONS DE LECTURE INTELLIGENTE ---
+# --- 4. LOGIQUE MÉTIER (IDENTIQUE) ---
 
 def safe_float(x):
     if pd.isna(x) or x == "": return 0.0
@@ -113,7 +158,6 @@ def safe_float(x):
     except: return 0.0
 
 def load_state():
-    # 1. Portefeuille
     if 'portfolio_df' not in st.session_state:
         if os.path.exists(FILE_PORTFOLIO):
             try:
@@ -128,7 +172,6 @@ def load_state():
         df['PRU'] = df['PRU'].apply(safe_float)
         st.session_state['portfolio_df'] = df
 
-    # 2. Historique
     if os.path.exists(FILE_HISTORY):
         try:
             with open(FILE_HISTORY, 'r') as f: raw_data = f.read()
@@ -150,7 +193,6 @@ def save_portfolio():
 def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
     df_hist = load_state()
     
-    # Récupération Veille
     if not df_hist.empty:
         last = df_hist.iloc[-1]
         prev_total = last.get('Total', 0)
@@ -209,8 +251,6 @@ def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
 
 df_history_static = load_state()
 
-# --- 4. PRIX LIVE ---
-
 @st.cache_data(ttl=60)
 def get_prices(tickers):
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
@@ -244,7 +284,6 @@ total_pf = df['Valo'].sum()
 total_pv = df['PV'].sum()
 volat_jour_live = df['Var_Jour'].sum()
 
-# --- 5. OPÉRATIONS ---
 def op_cash(amount):
     df = st.session_state['portfolio_df']
     mask = df['Ticker'] == 'CASH'
@@ -284,11 +323,10 @@ def op_trade(sens, tick, q, p, nom=""):
     save_portfolio()
     return True, "Succès"
 
-# --- 6. INTERFACE & BENTO GRID ---
+# --- 6. INTERFACE LIQUID GLASS ---
 
-st.markdown("<h1 style='text-align: center; margin-bottom: 30px;'>🏛️ Wealth Dashboard</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-bottom: 30px; font-weight: 300;'>HOLOGRAPHIC <span style='font-weight:700'>ESTATE</span></h1>", unsafe_allow_html=True)
 
-# Calculs KPI Avancés
 MONTANT_INITIAL = 15450.00 
 DATE_DEBUT = datetime(2022, 1, 1)
 cash_dispo = df[df['Ticker']=='CASH']['Valo'].sum()
@@ -303,45 +341,43 @@ years = days_held / 365.25
 cagr = ((total_pf / MONTANT_INITIAL) ** (1/years) - 1) * 100 if years > 0 else 0
 rendement_annuel = perf_totale_pct / years if years > 0 else 0
 
-# --- BENTO ROW 1 : Synthèse (4 blocs larges) ---
-st.markdown("### 🔭 Vue Satellite")
+# --- BENTO GRID ---
+st.markdown("#### 🔭 Vue Satellite")
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Portefeuille Net", f"{total_pf:,.2f} €", help="Valeur Totale")
-c2.metric("Montant Initial", f"{MONTANT_INITIAL:,.2f} €", delta=None)
-c3.metric("Trésorerie (Cash)", f"{cash_dispo:,.2f} €", f"{(cash_dispo/total_pf)*100:.1f}% du PF")
-c4.metric("Variation du Jour", f"{volat_jour_live:+,.2f} €", help="P&L depuis hier clôture")
+c1.metric("Portefeuille Net", f"{total_pf:,.2f} €")
+c2.metric("Montant Initial", f"{MONTANT_INITIAL:,.2f} €")
+c3.metric("Trésorerie", f"{cash_dispo:,.2f} €", f"{(cash_dispo/total_pf)*100:.1f}%")
+c4.metric("Variation Jour", f"{volat_jour_live:+,.2f} €")
 
-st.write("") # Espacement
+st.write("")
 
-# --- BENTO ROW 2 : Performance (4 blocs) ---
-st.markdown("### 🚀 Performance")
+st.markdown("#### 🚀 Performance")
 c5, c6, c7, c8 = st.columns(4)
-c5.metric("Investi (Marché)", f"{valo_investi:,.2f} €")
-c6.metric("Coût d'achat (PRU)", f"{cout_investi:,.2f} €")
+c5.metric("Investi", f"{valo_investi:,.2f} €")
+c6.metric("Coût (PRU)", f"{cout_investi:,.2f} €")
 c7.metric("Perf. Actifs", f"{perf_actif_eur:+,.2f} €", f"{perf_actif_pct:+.2f} %")
 c8.metric("Perf. Totale", f"{perf_totale_eur:+,.2f} €", f"{perf_totale_pct:+.2f} %")
 
 st.write("")
 
-# --- BENTO ROW 3 : Temps (2 blocs larges + graph) ---
 col_kpi_time, col_graph_time = st.columns([1, 3])
 with col_kpi_time:
-    st.markdown("### ⏳ Temps")
-    st.metric("Rendement Annuel", f"{rendement_annuel:.2f} %")
-    st.metric("CAGR (Composé)", f"{cagr:.2f} %")
+    st.markdown("#### ⏳ Temps")
+    st.metric("Rendement/An", f"{rendement_annuel:.2f} %")
+    st.metric("CAGR", f"{cagr:.2f} %")
 
 with col_graph_time:
-    # Graphique intégré dans le Bento
     if not df_history_static.empty:
         df_g = df_history_static.sort_values('Date').copy()
-        fig_mini = px.area(df_g, x='Date', y='Total', height=250)
+        fig_mini = px.area(df_g, x='Date', y='Total', height=280)
         fig_mini.update_layout(
             margin=dict(l=0, r=0, t=0, b=0),
-            xaxis_title=None, yaxis_title=None,
+            xaxis=dict(showgrid=False, title=None), 
+            yaxis=dict(showgrid=False, title=None, visible=False),
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             showlegend=False
         )
-        fig_mini.update_traces(line_color='#0f172a', fillcolor='rgba(15, 23, 42, 0.1)')
+        fig_mini.update_traces(line_color='#0f172a', fillcolor='rgba(15, 23, 42, 0.05)')
         st.plotly_chart(fig_mini, use_container_width=True)
 
 st.markdown("---")
@@ -350,18 +386,14 @@ st.markdown("---")
 with st.sidebar:
     st.header("🕹️ Centre de Contrôle")
     
-    with st.expander("💰 Trésorerie (Apport)", expanded=True):
-        st.caption("Ajouter du Cash")
+    with st.expander("💰 Trésorerie", expanded=True):
         mnt = st.number_input("Montant (€)", step=100.0)
         if st.button("Valider Virement", type="secondary", use_container_width=True):
-            if mnt > 0:
-                operation_tresorerie(mnt)
-                st.success("Effectué !")
-                st.rerun()
+            if mnt > 0: operation_tresorerie(mnt); st.success("OK"); st.rerun()
 
     st.write("")
 
-    with st.expander("📈 Trading (Ordres)", expanded=True):
+    with st.expander("📈 Trading", expanded=True):
         sens = st.radio("Sens", ["Achat", "Vente"], horizontal=True)
         tickers = [t for t in df['Ticker'].unique() if t != "CASH"]
         mode = st.radio("Actif", ["Existant", "Nouveau"], horizontal=True, label_visibility="collapsed")
@@ -377,10 +409,9 @@ with st.sidebar:
         qty = c1.number_input("Qté", min_value=0.00000001, step=0.01, format="%.8f")
         price = c2.number_input("Prix", min_value=0.01, step=0.01, format="%.2f")
         
-        st.caption(f"Total Estimé : {qty*price:,.2f}€")
-        
-        if st.button("Confirmer Ordre", type="primary", use_container_width=True):
-            ok, msg = operation_trading(sens, tick, qty, price, nom)
+        st.caption(f"Total: {qty*price:,.2f}€")
+        if st.button("Confirmer", type="primary", use_container_width=True):
+            ok, msg = op_trade(sens, tick, qty, price, nom)
             if ok: st.success(msg); st.rerun()
             else: st.error(msg)
     
@@ -390,10 +421,9 @@ with st.sidebar:
         if succes: 
             st.success(f"Sauvegardé ! Delta : {d:+.2f} €")
             import time; time.sleep(1); st.rerun()
-        else: 
-            st.warning("Déjà fait aujourd'hui")
+        else: st.warning("Déjà fait aujourd'hui")
 
-# --- ONGLETS DÉTAILLÉS ---
+# --- ONGLETS ---
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Positions", "📊 Benchmarks", "🔮 Projection", "🔧 Admin"])
 
 with tab1:
@@ -410,16 +440,20 @@ with tab2:
         st.subheader("Performance vs S&P 500 (Base 100)")
         try:
             x_axis = df_g['Date']
+            # Récupération sécurisée
             idx_cols = [c for c in df_g.columns if "Index100" in c]
             if len(idx_cols) >= 2:
+                # On prend les deux premiers trouvés
                 y_pf = df_g[idx_cols[0]]
                 y_ese = df_g[idx_cols[1]]
+                
                 fig_bench = go.Figure()
-                fig_bench.add_trace(go.Scatter(x=x_axis, y=y_pf, mode='lines', name='Mon Portefeuille', line=dict(color='#0f172a', width=3)))
+                fig_bench.add_trace(go.Scatter(x=x_axis, y=y_pf, mode='lines', name='Portefeuille', line=dict(color='#0f172a', width=3)))
                 fig_bench.add_trace(go.Scatter(x=x_axis, y=y_ese, mode='lines', name='S&P 500', line=dict(color='#94a3b8', width=2, dash='dot')))
-                fig_bench.update_layout(template="simple_white", hovermode="x unified", margin=dict(l=0,r=0,t=0,b=0))
+                fig_bench.update_layout(template="simple_white", hovermode="x unified", 
+                                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0,r=0,t=0,b=0))
                 st.plotly_chart(fig_bench, use_container_width=True)
-        except: st.error("Erreur indices")
+        except: st.error("Données indices manquantes")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -427,16 +461,17 @@ with tab2:
             if 'Delta' in df_g.columns:
                 colors = ['#10b981' if v >= 0 else '#ef4444' for v in df_g['Delta']]
                 fig_vol = go.Figure(go.Bar(x=df_g['Date'], y=df_g['Delta'], marker_color=colors))
-                fig_vol.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), showlegend=False)
+                fig_vol.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), showlegend=False,
+                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_vol, use_container_width=True)
         with c2:
             st.subheader("Plus-Value Cumulée")
             fig_pv = px.area(df_g, x='Date', y='Plus-value')
             fig_pv.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.1)')
-            fig_pv.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0))
+            fig_pv.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0),
+                               paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_pv, use_container_width=True)
-    else:
-        st.info("Historique vide.")
+    else: st.info("Historique vide.")
 
 with tab3:
     st.subheader("Futur")
@@ -451,10 +486,13 @@ with tab3:
         for i in range(1, y+1):
             c = c*(1+r/100) + (add*12)
             res.append({"Année": datetime.now().year+i, "Capital": c})
-        st.plotly_chart(px.area(pd.DataFrame(res), x="Année", y="Capital", template="simple_white"), use_container_width=True)
+        fig_proj = px.area(pd.DataFrame(res), x="Année", y="Capital")
+        fig_proj.update_layout(template="simple_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        fig_proj.update_traces(line_color='#0f172a', fillcolor='rgba(15, 23, 42, 0.1)')
+        st.plotly_chart(fig_proj, use_container_width=True)
 
 with tab4:
-    st.warning("Zone Admin. Modification directe BDD.")
+    st.warning("Zone Admin.")
     file_choice = st.radio("Fichier", ["Portefeuille", "Historique"], horizontal=True)
     
     if file_choice == "Portefeuille":
