@@ -142,3 +142,4 @@ if today not in df_hist['Date'].astype(str).values:
     print(f"Succès ! Ligne ajoutée pour le {today}. Delta: {delta}")
 else:
     print("Déjà fait pour aujourd'hui.")
+    

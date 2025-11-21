@@ -401,3 +401,31 @@ with tab3:
             c = c*(1+r/100) + (add*12)
             res.append({"Année": datetime.now().year+i, "Capital": c})
         st.plotly_chart(px.area(pd.DataFrame(res), x="Année", y="Capital", template="simple_white"), use_container_width=True)
+# Ajoutez un 4ème onglet "Admin"
+tab1, tab2, tab3, tab4 = st.tabs(["Positions", "Historique", "Projection", "🔧 Correction"])
+
+with tab4:
+    st.warning("Zone de correction manuelle. Modifiez les valeurs directement dans le tableau et cliquez sur Sauvegarder.")
+    
+    # Choix du fichier à corriger
+    file_choice = st.radio("Fichier à éditer", ["Portefeuille", "Historique"], horizontal=True)
+    
+    if file_choice == "Portefeuille":
+        # On utilise le Data Editor expérimental de Streamlit
+        edited_df = st.data_editor(df, num_rows="dynamic") # Permet ajout/suppression ligne
+        if st.button("💾 Sauvegarder les corrections Portefeuille"):
+            edited_df.to_csv(FILE_PORTFOLIO, index=False, sep=';')
+            st.success("Portefeuille corrigé !")
+            st.rerun()
+            
+    else:
+        # Pour l'historique, on charge tout
+        if os.path.exists(FILE_HISTORY):
+            try:
+                df_h_edit = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
+                edited_hist = st.data_editor(df_h_edit, num_rows="dynamic")
+                if st.button("💾 Sauvegarder les corrections Historique"):
+                    edited_hist.to_csv(FILE_HISTORY, index=False, sep=';')
+                    st.success("Historique corrigé !")
+                    st.rerun()
+            except: st.error("Erreur chargement historique")
