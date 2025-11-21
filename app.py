@@ -265,7 +265,7 @@ with tab_pf:
 
 with tab_chart:
     if not df_hist.empty:
-        c1, c2 = st.columns([2, 1])
+        c1, c2 = st.columns(2)
         with c1:
             st.caption("Évolution Patrimoniale")
             fig = px.area(df_hist, x='Date', y='Total', line_shape='spline')
