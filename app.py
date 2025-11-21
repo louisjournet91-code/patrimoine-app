@@ -160,14 +160,16 @@ def safe_float(x):
         return 0.0
 
 def load_state():
-    """Chargement du portefeuille et de l'historique avec gestion d'erreurs"""
+    """Chargement du portefeuille et de l'historique avec gestion d'erreurs robuste"""
     # Chargement du portefeuille
     if 'portfolio_df' not in st.session_state:
         if os.path.exists(FILE_PORTFOLIO):
             try:
-                df = pd.read_csv(FILE_PORTFOLIO, sep=';')
+                # On force le type string pour éviter les erreurs de parsing initial
+                df = pd.read_csv(FILE_PORTFOLIO, sep=';', dtype=str)
+                # Si format virgule au lieu de point-virgule
                 if df.shape[1] < 2: 
-                    df = pd.read_csv(FILE_PORTFOLIO, sep=',')
+                    df = pd.read_csv(FILE_PORTFOLIO, sep=',', dtype=str)
             except Exception as e:
                 st.error(f"⚠️ Erreur chargement portefeuille : {e}")
                 df = pd.DataFrame(INITIAL_PORTFOLIO)
@@ -178,18 +180,23 @@ def load_state():
             except Exception as e:
                 st.error(f"⚠️ Impossible de créer le fichier : {e}")
         
-        df['Quantité'] = df['Quantité'].apply(safe_float)
-        df['PRU'] = df['PRU'].apply(safe_float)
+        # Nettoyage et conversion des types
+        cols_to_float = ['Quantité', 'PRU']
+        for col in df.columns:
+            if col in cols_to_float or col not in ['Ticker', 'Nom', 'Type']:
+                 df[col] = df[col].apply(safe_float)
+                 
         st.session_state['portfolio_df'] = df
 
     # Chargement de l'historique
     if os.path.exists(FILE_HISTORY):
         try:
-            with open(FILE_HISTORY, 'r') as f: 
-                raw_data = f.read()
-            df_hist = pd.read_csv(io.StringIO(raw_data), sep=',', engine='python')
+            # CORRECTION ICI : on_bad_lines='skip' ignore la ligne 279 corrompue
+            df_hist = pd.read_csv(FILE_HISTORY, sep=',', on_bad_lines='skip', engine='python')
+            
             for col in [c for c in df_hist.columns if c != "Date"]:
                 df_hist[col] = df_hist[col].apply(safe_float)
+                
             df_hist['Date'] = pd.to_datetime(df_hist['Date'], dayfirst=True, errors='coerce')
             df_hist = df_hist.dropna(subset=['Date'])
         except Exception as e:
@@ -208,7 +215,7 @@ def save_portfolio():
         st.error(f"❌ Erreur sauvegarde : {e}")
 
 def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
-    """Ajout d'un point dans l'historique avec calculs TWR"""
+    """Ajout d'un point dans l'historique avec calculs TWR et sauvegarde sécurisée"""
     df_hist = load_state()
     prev_total, prev_ese, prev_pf_idx, prev_ese_idx = (0.0, 0.0, 100.0, 100.0)
     
@@ -217,11 +224,10 @@ def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
         prev_total = last.get('Total', 0)
         prev_ese = last.get('ESE', 0)
         prev_pf_idx = last.get('PF_Index100', 100) 
-        if isinstance(prev_pf_idx, pd.Series): 
-            prev_pf_idx = prev_pf_idx.iloc[0]
+        # Gestion sécurité si Index100 est absent
+        if isinstance(prev_pf_idx, pd.Series): prev_pf_idx = prev_pf_idx.iloc[0]
         prev_ese_idx = last.get('ESE_Index100', 100)
-        if isinstance(prev_ese_idx, pd.Series): 
-            prev_ese_idx = prev_ese_idx.iloc[0]
+        if isinstance(prev_ese_idx, pd.Series): prev_ese_idx = prev_ese_idx.iloc[0]
     else: 
         prev_total = total
 
@@ -266,12 +272,13 @@ def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
             "ESE_Index100.1": round(ese_idx - 100, 2)
         }
         try:
-            if os.path.exists(FILE_HISTORY):
-                line = ",".join([str(v) for v in new_row.values()])
-                with open(FILE_HISTORY, 'a') as f: 
-                    f.write("\n" + line)
-            else: 
-                pd.DataFrame([new_row]).to_csv(FILE_HISTORY, index=False, sep=',')
+            # CORRECTION MAJEURE ICI : Utilisation de Pandas pour écrire (gère les quotes)
+            df_new_row = pd.DataFrame([new_row])
+            
+            # Si le fichier n'existe pas, on écrit avec l'en-tête, sinon on append sans en-tête
+            header_mode = not os.path.exists(FILE_HISTORY)
+            df_new_row.to_csv(FILE_HISTORY, mode='a', index=False, header=header_mode, sep=',')
+            
             return True, delta
         except Exception as e:
             st.error(f"❌ Erreur sauvegarde historique : {e}")
