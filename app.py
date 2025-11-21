@@ -265,65 +265,54 @@ df['Var_Jour'] = df['Valo'] - (df['Quantité'] * df['Prev'])
 
 @st.cache_data(ttl=3600)
 def get_market_monitor():
-    # Liste précise des Tickers (Yahoo Finance)
+    # Liste exacte
     targets = {
-        "Volatilité (VIX)": "^VIX",
+        "INDEX CBOE:VIX": "^VIX",
         "CAC 40": "^FCHI",
-        "S&P 500": "^GSPC",
-        "MSCI World (CW8)": "CW8.PA",
-        "Emerging (PAEEM)": "PAEEM.PA",
-        "MSCI Europe (PCEU)": "PCEU.PA",
+        "SP 500": "^GSPC",
+        "ETF MSCI World Amundi": "CW8.PA",
+        "Emerging Market": "PAEEM.PA",
+        "MSCI Europe": "PCEU.PA",
         "Euro Stoxx 50": "^STOXX50E",
-        "Emerging ex Egypt": "PLEM.PA"
+        "Emerging Market ex Egypt": "PLEM.PA"
     }
     
     data = []
     
     try:
         tickers_list = list(targets.values())
-        # On télécharge 3 mois pour assurer le calcul du mois glissant
         hist = yf.download(tickers_list, period="3mo", progress=False)['Close']
         
         for name, ticker in targets.items():
             if ticker in hist.columns:
-                # On nettoie les données vides
                 series = hist[ticker].dropna()
-                
-                if len(series) >= 22: # Il faut au moins 1 mois de data
-                    current_price = series.iloc[-1] # Prix de clôture (ou live différé)
-                    prev_close = series.iloc[-2]    # Veille
-                    month_ago = series.iloc[-22]    # Il y a ~21-22 jours de bourse dans 1 mois
+                if len(series) >= 22:
+                    current = series.iloc[-1]
+                    prev = series.iloc[-2]
+                    month_ago = series.iloc[-22]
                     
-                    # 1. Perf Jour
-                    perf_day = (current_price - prev_close) / prev_close
+                    # Calculs simples
+                    perf_d = (current - prev) / prev
+                    perf_m = (current - month_ago) / month_ago
                     
-                    # 2. Perf 1 Mois
-                    perf_month = (current_price - month_ago) / month_ago
-                    
-                    # 3. Volatilité (Sur 30 jours glissants annualisée)
-                    daily_ret = series.pct_change().tail(30)
-                    volatility = daily_ret.std() * (252**0.5)
-                    
-                    # Cas particulier VIX : On n'affiche pas de volatilité d'une volatilité
-                    if ticker == "^VIX":
-                        volatility = None 
-
                     data.append({
                         "Indice": name,
-                        "Prix actuel": current_price,
-                        "Perf. du Jour": perf_day,
-                        "Perf 1 Mois": perf_month,
-                        "Volatilité": volatility
+                        "Ticker": ticker,
+                        "Prix actuel": current,
+                        "Perf. du Jour": perf_d,
+                        "Perf 1 Mois": perf_m
                     })
             else:
-                # Si ticker non trouvé
-                data.append({"Indice": name, "Prix actuel": 0.0, "Perf. du Jour": 0.0, "Perf 1 Mois": 0.0, "Volatilité": 0.0})
+                data.append({
+                    "Indice": name, "Ticker": ticker, 
+                    "Prix actuel": 0.0, "Perf. du Jour": 0.0, "Perf 1 Mois": 0.0
+                })
                 
-    except Exception as e:
-        st.error(f"Erreur flux marché : {e}")
-        return pd.DataFrame()
-        
-    return pd.DataFrame(data)
+    except Exception as e: st.error(e)
+    
+    # Ordre strict des colonnes (Sans Volatilité)
+    df = pd.DataFrame(data)
+    return df[["Indice", "Ticker", "Prix actuel", "Perf. du Jour", "Perf 1 Mois"]]
 
 # --- CALCULS TOTAUX ---
 val_btc = df[df['Ticker'].str.contains("BTC")]['Valo'].sum()
@@ -514,7 +503,8 @@ with tab2:
     else: st.info("Pas d'historique.")
 with tab2:
     # --- MONITOR DE MARCHÉ ---
-    st.subheader("🌍 Marchés & Indices")
+    st.subheader("Données journalière et mensuelle")
+    
     df_market = get_market_monitor()
     
     if not df_market.empty:
@@ -523,32 +513,14 @@ with tab2:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "Indice": st.column_config.TextColumn("Actif", width="medium"),
-                
-                "Prix actuel": st.column_config.NumberColumn(
-                    "Prix", 
-                    format="%.2f"
-                ),
-                
-                "Perf. du Jour": st.column_config.NumberColumn(
-                    "Perf. Jour", 
-                    format="%.2f %%" # Affichage % simple
-                ),
-                
-                "Perf 1 Mois": st.column_config.NumberColumn(
-                    "Perf. 1 Mois", 
-                    format="%.2f %%" # Affichage % simple
-                ),
-                
-                "Volatilité": st.column_config.NumberColumn(
-                    "Volatilité (An)", 
-                    format="%.1f %%"
-                )
+                "Indice": st.column_config.TextColumn("Indice", width="medium"),
+                "Ticker": st.column_config.TextColumn("Ticker", width="small"),
+                "Prix actuel": st.column_config.NumberColumn("Prix actuel", format="%.2f"),
+                "Perf. du Jour": st.column_config.NumberColumn("Perf. du Jour", format="%.2f %%"),
+                "Perf 1 Mois": st.column_config.NumberColumn("Perf 1 Mois", format="%.2f %%")
             }
         )
-    else:
-        st.info("Chargement des données mondiales...")
-
+    
     st.markdown("---")
     
 with tab3:
