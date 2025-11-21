@@ -508,9 +508,10 @@ with tab2:
                 st.plotly_chart(fig_b, use_container_width=True)
         except: pass
     else: st.info("Pas d'historique.")
-with tab2:
-   st.subheader("Données journalière et mensuelle")
     
+    st.subheader("Données journalière et mensuelle")
+    
+    # Cette ligne doit être alignée (4 espaces) comme st.subheader
     df_market = get_market_monitor()
     
     if not df_market.empty:
@@ -522,7 +523,6 @@ with tab2:
                 "Indice": st.column_config.TextColumn("Indice", width="medium"),
                 "Ticker": st.column_config.TextColumn("Ticker", width="small"),
                 "Prix actuel": st.column_config.NumberColumn("Prix actuel", format="%.2f"),
-                # Le format ajoute juste le % visuellement
                 "Perf. du Jour": st.column_config.NumberColumn("Perf. du Jour", format="%.2f %%"),
                 "Perf 1 Mois": st.column_config.NumberColumn("Perf 1 Mois", format="%.2f %%")
             }
