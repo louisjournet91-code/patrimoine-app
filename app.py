@@ -368,7 +368,7 @@ with col_sim_input:
         
         st.markdown(f"""
         <div style="margin-top: 20px; padding: 15px; background: {card_bg}; border-radius: 12px; border: 1px solid {border_color};">
-            <small style="color: {text_color}; opacity: 0.7;">Capital Départ</small><br>
+            <small style="color: {text_color}; opacity: 0.3;">Capital Départ</small><br>
             <strong style="color: {text_color};">{TOTAL_ACTUEL:,.0f} €</strong>
         </div>
         """, unsafe_allow_html=True)
