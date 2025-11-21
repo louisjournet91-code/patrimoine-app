@@ -551,63 +551,8 @@ with c3:
 
 st.markdown("---")
 
-# --- SIDEBAR GESTION ---
-with st.sidebar:
-    st.header("🕹️ Centre de Contrôle")
-    
-    with st.expander("💰 Trésorerie", expanded=True):
-        mnt = st.number_input("Montant (€)", min_value=0.0, step=100.0, value=0.0)
-        if st.button("Valider Virement", type="secondary"):
-            if mnt > 0:
-                success, msg = op_cash(mnt)
-                if success:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-            else:
-                st.warning("⚠️ Montant invalide")
-    
-    st.write("")
-    
-    with st.expander("📈 Trading", expanded=True):
-        sens = st.radio("Sens", ["Achat", "Vente"], horizontal=True)
-        tickers = [t for t in df['Ticker'].unique() if t != "CASH"]
-        mode = st.radio("Actif", ["Existant", "Nouveau"], horizontal=True, label_visibility="collapsed")
-        
-        if mode == "Existant":
-            tick = st.selectbox("Sélection", tickers)
-            nom = ""
-        else:
-            tick = st.text_input("Symbole (ex: AI.PA)").upper()
-            nom = st.text_input("Nom")
-        
-        c_q, c_p = st.columns(2)
-        qty = c_q.number_input("Qté", min_value=0.00000001, step=0.01, format="%.8f", value=0.00000001)
-        price = c_p.number_input("Prix", min_value=0.01, step=0.01, format="%.2f", value=1.0)
-        
-        if st.button("Confirmer Ordre", type="primary"):
-            ok, msg = op_trade(sens, tick, qty, price, nom)
-            if ok: 
-                st.success(msg)
-                st.rerun()
-            else: 
-                st.error(msg)
-    
-    st.markdown("---")
-    
-    if st.button("💾 Sauvegarder Historique"):
-        succes, delta_val = add_history_point(total_pf, val_pea, val_btc, total_pv, df)
-        if succes: 
-            st.success(f"✅ Sauvegardé • Delta : {delta_val:+.2f} €")
-            import time
-            time.sleep(1)
-            st.rerun()
-        else: 
-            st.warning("⚠️ Déjà enregistré aujourd'hui")
-
 # --- ONGLETS & VISUALISATION ---
-tab1, tab2, tab3, tab4 = st.tabs(["📋 Portefeuille", "📊 Graphiques", "🔮 Futur", "🔧 Admin"])
+tab1, tab2, tab3 = st.tabs(["📋 Portefeuille", "📊 Graphiques", "🔮 Futur"])
 
 with tab1:
     st.dataframe(
@@ -748,38 +693,3 @@ with tab3:
         st.plotly_chart(fig_p, use_container_width=True)
         
         st.info(f"🎯 Capital projeté dans {y} ans : **{capital:,.2f} €**")
-
-with tab4:
-    st.warning("⚠️ Zone d'Administration - Modifications directes")
-    
-    f_ch = st.radio("Fichier", ["Portefeuille", "Historique"], horizontal=True)
-    
-    if f_ch == "Portefeuille":
-        ed = st.data_editor(df, num_rows="dynamic", use_container_width=True)
-        if st.button("💾 Sauvegarder Portefeuille"):
-            try:
-                ed.to_csv(FILE_PORTFOLIO, index=False, sep=';')
-                st.success("✅ Portefeuille sauvegardé")
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ Erreur : {e}")
-    else:
-        if os.path.exists(FILE_HISTORY):
-            try:
-                with open(FILE_HISTORY, 'r') as f: 
-                    raw = f.read()
-                h_ed = st.data_editor(
-                    pd.read_csv(io.StringIO(raw), sep=',', engine='python'), 
-                    num_rows="dynamic",
-                    use_container_width=True
-                )
-                if st.button("💾 Sauvegarder Historique"):
-                    if pd.api.types.is_datetime64_any_dtype(h_ed['Date']): 
-                        h_ed['Date'] = h_ed['Date'].dt.strftime('%d/%m/%Y')
-                    h_ed.to_csv(FILE_HISTORY, index=False, sep=',', quotechar='"', quoting=1)
-                    st.success("✅ Historique sauvegardé")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"❌ Erreur lecture : {e}")
-        else:
-            st.info("📄 Aucun fichier historique trouvé")
