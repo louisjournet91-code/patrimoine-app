@@ -275,20 +275,38 @@ col1.metric("Cash Disponible", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_AC
 col2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%")
 col3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 
-# --- SECTION 1 : PORTEFEUILLE ---
+# --- SECTION 1 : PORTEFEUILLE (MODIFIÉE) ---
 st.markdown("<div class='section-header'>📋 Détail du Portefeuille</div>", unsafe_allow_html=True)
 
+# Fonction pour le styling des couleurs
+def style_pos_neg(v):
+    color = '#10b981' if v >= 0 else '#ef4444' # Vert émeraude ou Rouge vif
+    return f'color: {color}; font-weight: bold;'
+
+# Préparation des données avec Styler
+df_display = df_pf[['Nom', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_24h_€']]
+
+# Application du style Pandas
+styled_df = df_display.style.format({
+    "Quantité": "{:.4f}",
+    "PRU": "{:.2f} €",
+    "Prix_Actuel": "{:.2f} €",
+    "Valo": "{:.2f} €",
+    "Perf_%": "{:+.2f} %",
+    "Var_24h_€": "{:+.2f} €"
+}).map(style_pos_neg, subset=['Perf_%', 'Var_24h_€'])
+
 st.dataframe(
-    df_pf[['Nom', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_24h_€']],
+    styled_df,
     hide_index=True,
     use_container_width=True,
     column_config={
         "Nom": st.column_config.TextColumn("Actif", width="medium"),
-        "Valo": st.column_config.NumberColumn("Valorisation", format="%.2f €"),
-        "PRU": st.column_config.NumberColumn("Prix Revient", format="%.2f €"),
-        "Prix_Actuel": st.column_config.NumberColumn("Cours", format="%.2f €"),
-        "Perf_%": st.column_config.ProgressColumn("Perf %", format="%.2f %%", min_value=-20, max_value=20),
-        "Var_24h_€": st.column_config.NumberColumn("24h", format="%+.2f €")
+        "Valo": st.column_config.NumberColumn("Valorisation"),
+        "PRU": st.column_config.NumberColumn("Prix Revient"),
+        "Prix_Actuel": st.column_config.NumberColumn("Cours"),
+        "Perf_%": st.column_config.NumberColumn("Perf %"), # Plus de ProgressColumn
+        "Var_24h_€": st.column_config.NumberColumn("24h")
     }
 )
 
