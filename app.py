@@ -281,19 +281,29 @@ def get_market_monitor():
     
     try:
         tickers_list = list(targets.values())
+        # On charge les données
         hist = yf.download(tickers_list, period="3mo", progress=False)['Close']
         
         for name, ticker in targets.items():
             if ticker in hist.columns:
-                series = hist[ticker].dropna()
+                # Nettoyage et conversion explicite en nombres (float) pour éviter les erreurs de virgule
+                series = hist[ticker].dropna().astype(float)
+                
                 if len(series) >= 22:
-                    current = series.iloc[-1]
-                    prev = series.iloc[-2]
-                    month_ago = series.iloc[-22]
+                    # Dernier prix connu (Live ou Clôture hier)
+                    current = float(series.iloc[-1])
+                    # Clôture précédente (pour perf jour)
+                    prev = float(series.iloc[-2])
+                    # Il y a exactement ~21 jours ouvrés de bourse dans 1 mois
+                    month_ago = float(series.iloc[-21])
                     
-                    # Calculs simples
-                    perf_d = (current - prev) / prev
-                    perf_m = (current - month_ago) / month_ago
+                    # Calcul des variations (Mathématique pure)
+                    # Résultat 0.05 donnera 5% à l'affichage
+                    if prev != 0: perf_d = (current - prev) / prev
+                    else: perf_d = 0.0
+                        
+                    if month_ago != 0: perf_m = (current - month_ago) / month_ago
+                    else: perf_m = 0.0
                     
                     data.append({
                         "Indice": name,
@@ -303,16 +313,18 @@ def get_market_monitor():
                         "Perf 1 Mois": perf_m
                     })
             else:
+                # Cas où la donnée est absente
                 data.append({
                     "Indice": name, "Ticker": ticker, 
                     "Prix actuel": 0.0, "Perf. du Jour": 0.0, "Perf 1 Mois": 0.0
                 })
                 
-    except Exception as e: st.error(e)
+    except Exception as e:
+        st.error(f"Erreur données marché: {e}")
     
-    # Ordre strict des colonnes (Sans Volatilité)
-    df = pd.DataFrame(data)
-    return df[["Indice", "Ticker", "Prix actuel", "Perf. du Jour", "Perf 1 Mois"]]
+    # On retourne le DataFrame avec les colonnes dans l'ordre strict
+    df_m = pd.DataFrame(data)
+    return df_m[["Indice", "Ticker", "Prix actuel", "Perf. du Jour", "Perf 1 Mois"]]
 
 # --- CALCULS TOTAUX ---
 val_btc = df[df['Ticker'].str.contains("BTC")]['Valo'].sum()
