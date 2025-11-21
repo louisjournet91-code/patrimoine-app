@@ -99,39 +99,71 @@ def load_state():
 def save_portfolio():
     st.session_state['portfolio_df'].to_csv(FILE_PORTFOLIO, index=False, sep=';')
 
-def add_history_point(total, val_pea, val_btc, pv_totale, pv_jour_live):
-    # Relecture propre avant ajout
-    if os.path.exists(FILE_HISTORY):
-        try: df = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
-        except: df = pd.DataFrame(columns=HIST_COLS)
-    else:
-        df = pd.DataFrame(columns=HIST_COLS)
-        
-    # Standardisation Date
-    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
-    today = pd.to_datetime(datetime.now().date())
+def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
+    """
+    Reproduit la logique exacte de votre script Google Apps Script :
+    1. Récupère la PV de la dernière sauvegarde pour calculer le Delta.
+    2. Isole la valeur de l'ESE (C16 dans votre ancien fichier).
+    3. Sauvegarde le tout.
+    """
     
-    if not (df['Date'] == today).any():
-        # Récupération des derniers index connus pour continuité
-        last_pf_idx = df['PF_Index100'].iloc[-1] if not df.empty and 'PF_Index100' in df else 100
-        last_ese_idx = df['ESE_Index100'].iloc[-1] if not df.empty and 'ESE_Index100' in df else 100
+    # 1. Chargement de l'historique existant
+    if os.path.exists(FILE_HISTORY):
+        try: 
+            df_hist = pd.read_csv(FILE_HISTORY, sep=';', engine='python')
+            # Nettoyage rapide pour lecture
+            for col in ['Plus-value']:
+                if col in df_hist.columns:
+                    df_hist[col] = df_hist[col].apply(safe_float)
+        except: 
+            df_hist = pd.DataFrame(columns=HIST_COLS)
+    else:
+        df_hist = pd.DataFrame(columns=HIST_COLS)
 
+    # 2. Calcul du DELTA (Comme dans votre script : value5 - value6)
+    last_pv = 0.0
+    if not df_hist.empty:
+        # On prend la dernière Plus-Value enregistrée
+        last_pv = df_hist['Plus-value'].iloc[-1]
+    
+    delta = pv_totale - last_pv
+
+    # 3. Récupération valeur ESE (Équivalent de votre cellule C16)
+    # On cherche la ligne ESE.PA et on prend son prix actuel
+    try:
+        ese_price = df_pf.loc[df_pf['Ticker'] == 'ESE.PA', 'Prix_Actuel'].values[0]
+    except:
+        ese_price = 0.0 # Sécurité si ESE n'est pas trouvé
+
+    # 4. Préparation de la ligne à sauvegarder
+    today = datetime.now().strftime("%d/%m/%Y")
+    
+    # Vérification anti-doublon pour la journée
+    if today not in df_hist['Date'].astype(str).values:
         new_data = {
             "Date": today,
-            "Total": round(total, 2), "PEA": round(val_pea, 2), "BTC": round(val_btc, 2),
-            "Plus-value": round(pv_totale, 2), 
-            "PV_du_Jour": round(pv_jour_live, 2), # Volatilité jour
-            "PF_Index100": last_pf_idx, # Note: Le calcul TWR exact demande plus de logique, on maintient l'existant
-            "ESE_Index100": last_ese_idx,
-            "Delta": 0, "ESE": 0, "Flux_(€)": 0, "PF_Return_TWR": 0, "ESE_Return": 0
+            "Total": round(total, 2),       # Votre B1
+            "PEA": round(val_pea, 2),       # Votre D23
+            "BTC": round(val_btc, 2),       # Votre D24
+            "Plus-value": round(pv_totale, 2), # Votre B6
+            "Delta": round(delta, 2),       # Votre Calcul (J - J-1)
+            "ESE": round(ese_price, 2),     # Votre C16
+            "Flux_(€)": 0,                  # Votre Colonne I forcée à 0
+            
+            # Champs techniques maintenus à 0 ou calculés plus tard
+            "PV_du_Jour": 0, 
+            "PF_Return_TWR": 0, "ESE_Return": 0, 
+            "PF_Index100": 0, "ESE_Index100": 0
         }
-        new_row = pd.DataFrame([new_data])
-        df = pd.concat([df, new_row], ignore_index=True)
         
-        # Sauvegarde au format JJ/MM/AAAA pour Excel
-        df.to_csv(FILE_HISTORY, index=False, sep=';', date_format='%d/%m/%Y')
-        return True
-    return False
+        new_row = pd.DataFrame([new_data])
+        df_final = pd.concat([df_hist, new_row], ignore_index=True)
+        
+        # Sauvegarde avec point-virgule
+        df_final.to_csv(FILE_HISTORY, index=False, sep=';')
+        return True, delta # On retourne le delta pour l'afficher à l'utilisateur
+    
+    return False, 0
 
 df_history_static = load_state()
 
@@ -225,26 +257,67 @@ k4.metric("Volatilité Jour", f"{volat_jour_live:+,.2f} €", help="Gain/Perte d
 
 st.markdown("---")
 
+# --- 6. SIDEBAR (GUICHET) ---
 with st.sidebar:
-    st.header("Guichet")
-    with st.expander("Opérations", expanded=True):
-        typ = st.selectbox("Type", ["Apport Cash", "Achat", "Vente"])
-        if typ == "Apport Cash":
-            v = st.number_input("Montant", step=100.0)
-            if st.button("Valider"): op_cash(v); st.rerun()
-        else:
-            tk = st.selectbox("Actif", [t for t in df['Ticker'].unique() if t!="CASH"])
-            c1, c2 = st.columns(2)
-            q = c1.number_input("Qte", 0.01)
-            p = c2.number_input("Prix", 0.01)
-            if st.button("Valider"): 
-                ok, m = op_trade(typ, tk, q, p)
-                if ok: st.success(m); st.rerun()
-                else: st.error(m)
+    st.header("Guichet Opérations")
+    
+    # Module 1 : Trésorerie
+    with st.expander("💰 Trésorerie (Apport)", expanded=True):
+        st.caption("Ajouter du Cash")
+        mnt = st.number_input("Montant (€)", step=100.0)
+        if st.button("Valider Virement", type="secondary", use_container_width=True):
+            if mnt > 0:
+                operation_tresorerie(mnt)
+                st.success("Virement effectué !")
+                st.rerun()
+
     st.markdown("---")
+
+    # Module 2 : Trading
+    with st.expander("📈 Trading (Ordres)", expanded=True):
+        st.caption("Acheter / Vendre")
+        sens = st.radio("Sens", ["Achat", "Vente"], horizontal=True)
+        
+        tickers = [t for t in df['Ticker'].unique() if t != "CASH"]
+        mode = st.radio("Actif", ["Existant", "Nouveau"], horizontal=True, label_visibility="collapsed")
+        
+        if mode == "Existant":
+            tick = st.selectbox("Sélection", tickers)
+            nom = ""
+        else:
+            tick = st.text_input("Symbole (ex: AI.PA)").upper()
+            nom = st.text_input("Nom")
+            
+        c1, c2 = st.columns(2)
+        qty = c1.number_input("Qté", 0.01)
+        price = c2.number_input("Prix", 0.01)
+        
+        st.markdown(f"**Total : {qty*price:,.2f}€**")
+        
+        if st.button("Confirmer Ordre", type="primary", use_container_width=True):
+            ok, msg = operation_trading(sens, tick, qty, price, nom)
+            if ok:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+    
+    st.markdown("---")
+    
+    # BOUTON DE SAUVEGARDE (Mis à jour)
     if st.button("💾 Sauvegarder Historique"):
-        if add_history_point(total_pf, val_pea, val_btc, total_pv, volat_jour_live): st.success("Sauvegardé")
-        else: st.warning("Déjà fait ajd")
+        # Notez qu'on passe 'df' à la fin pour récupérer le prix de l'ESE
+        succes, delta_calc = add_history_point(total_pf, val_pea, val_btc, total_pv, df)
+        
+        if succes: 
+            st.balloons()
+            st.success(f"Sauvegardé ! Delta jour : {delta_calc:+.2f} €")
+        else: 
+            st.warning("Point déjà existant pour aujourd'hui.")
+        
+        # Petit délai pour lire le message avant rafraîchissement
+        import time
+        time.sleep(2)
         st.rerun()
 
 tab1, tab2, tab3 = st.tabs(["Positions", "Analyse & Benchmarks", "Projection"])
