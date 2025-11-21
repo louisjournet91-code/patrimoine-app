@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import os
+import io
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Gestion Patrimoniale Expert", layout="wide", page_icon="🏛️")
@@ -31,8 +32,8 @@ FILE_PORTFOLIO = 'portefeuille.csv'
 FILE_HISTORY = 'historique.csv'
 
 HIST_COLS = [
-    "Date", "Total", "PEA", "BTC", "Plus-value", "Delta", "PV_du_Jour", 
-    "ESE", "Flux_(€)", "PF_Return_TWR", "ESE_Return", 
+    "Date", "Total", "PEA", "BTC", "Plus-value", "Delta", "PV du Jour", 
+    "ESE", "Flux (€)", "PF_Return_TWR", "ESE_Return", 
     "PF_Index100", "ESE_Index100"
 ]
 
@@ -52,7 +53,7 @@ def safe_float(x):
     if isinstance(x, (float, int)): return float(x)
     if isinstance(x, str):
         # On garde uniquement chiffres, points, virgules, signe moins
-        x = x.replace(' ', '').replace('%', '').replace('€', '')
+        x = x.replace(' ', '').replace('%', '').replace('€', '').replace('"', '')
         x = x.replace(',', '.')
         # Si plusieurs points (ex: 1.200.50), on garde le dernier
         if x.count('.') > 1:
@@ -73,6 +74,7 @@ def load_state():
             df = pd.DataFrame(INITIAL_PORTFOLIO)
             df.to_csv(FILE_PORTFOLIO, index=False, sep=';')
         
+        # CORRECTION: Utilisation de safe_float (et non clean_french_number)
         df['Quantité'] = df['Quantité'].apply(safe_float)
         df['PRU'] = df['PRU'].apply(safe_float)
         st.session_state['portfolio_df'] = df
@@ -80,9 +82,12 @@ def load_state():
     # 2. Historique
     if os.path.exists(FILE_HISTORY):
         try:
-            df_hist = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
+            # Lecture brute pour gérer les guillemets
+            with open(FILE_HISTORY, 'r') as f: raw_data = f.read()
+            df_hist = pd.read_csv(io.StringIO(raw_data), sep=',', engine='python')
+            
             # Nettoyage de TOUTES les colonnes numériques
-            cols_num = ['Total', 'PEA', 'BTC', 'Plus-value', 'PV_du_Jour', 'PF_Index100', 'ESE_Index100']
+            cols_num = ['Total', 'PEA', 'BTC', 'Plus-value', 'PV du Jour', 'PF_Index100', 'ESE_Index100']
             for col in cols_num:
                 if col in df_hist.columns:
                     df_hist[col] = df_hist[col].apply(safe_float)
@@ -100,98 +105,88 @@ def save_portfolio():
     st.session_state['portfolio_df'].to_csv(FILE_PORTFOLIO, index=False, sep=';')
 
 def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
-    """
-    Sauvegarde avec Calcul du Delta pur : Valeur Actuelle - Valeur Veille (CSV)
-    Sécurisée contre les virgules françaises.
-    """
-    # 1. Chargement de l'historique
-    if os.path.exists(FILE_HISTORY):
-        try: 
-            # On lit sans forcer le type ici, le nettoyage se fera après
-            df_hist = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
-        except: 
-            df_hist = pd.DataFrame(columns=HIST_COLS)
-    else:
-        df_hist = pd.DataFrame(columns=HIST_COLS)
+    # Relecture propre
+    df_hist = load_state()
 
-    # 2. Récupération de la valeur de LA VEILLE (J-1)
-    # C'est ici que nous utilisons safe_float pour éviter le crash "ValueError"
-    prev_total = 0.0
-    prev_ese = 0.0
-    prev_pf_idx = 100.0
-    prev_ese_idx = 100.0
-    prev_pv = 0.0
-    
+    # Récupération Veille (J-1)
     if not df_hist.empty:
-        last_row = df_hist.iloc[-1]
-        # CORRECTION : Utilisation de safe_float au lieu de float
-        prev_total = safe_float(last_row.get('Total', 0))
-        prev_ese = safe_float(last_row.get('ESE', 0))
-        prev_pf_idx = safe_float(last_row.get('PF_Index100', 100))
-        prev_ese_idx = safe_float(last_row.get('ESE_Index100', 100))
-        prev_pv = safe_float(last_row.get('Plus-value', 0))
+        last = df_hist.iloc[-1]
+        prev_total = safe_float(last.get('Total', 0))
+        prev_ese = safe_float(last.get('ESE', 0))
+        
+        # Gestion doublon noms colonnes (N/O dans Excel)
+        prev_pf_idx = last.get('PF_Index100', 100)
+        if isinstance(prev_pf_idx, pd.Series): prev_pf_idx = prev_pf_idx.iloc[0]
+        
+        prev_ese_idx = last.get('ESE_Index100', 100)
+        if isinstance(prev_ese_idx, pd.Series): prev_ese_idx = prev_ese_idx.iloc[0]
     else:
-        prev_total = total # Si fichier vide, on initialise avec la valeur actuelle
+        prev_total = total
+        prev_ese = 0.0
+        prev_pf_idx = 100.0
+        prev_ese_idx = 100.0
 
-    # 3. Données Actuelles
-    try:
-        ese_price = df_pf.loc[df_pf['Ticker'].str.contains("ESE"), 'Prix_Actuel'].values[0]
-    except:
-        ese_price = 0.0
+    # Données Actuelles (J)
+    try: ese_price = df_pf.loc[df_pf['Ticker'].str.contains("ESE"), 'Prix_Actuel'].values[0]
+    except: ese_price = 0.0
     
     flux = 0.0 
-
-    # 4. LE CALCUL (Delta = Total - Veille)
-    delta = total - prev_total 
-    
-    # La PV du jour est ce delta moins les flux éventuels
+    delta = total - prev_total # Calcul Delta Strict
     pv_jour = delta - flux
 
-    # TWR & Indices
+    # Calcul Indices
     denom = prev_total + flux
-    pf_return = (total - prev_total - flux) / denom if denom != 0 else 0.0
+    pf_ret = (delta - flux) / denom if denom != 0 else 0.0
     
-    # Calcul ESE Return
-    if prev_ese != 0 and ese_price != 0:
-        ese_return = (ese_price - prev_ese) / prev_ese
-    else:
-        ese_return = 0.0
-
-    pf_index100 = prev_pf_idx * (1 + pf_return)
-    ese_index100 = prev_ese_idx * (1 + ese_return)
-
-    # 5. Sauvegarde
-    today = datetime.now().strftime("%d/%m/%Y")
+    ese_ret = (ese_price - prev_ese)/prev_ese if (prev_ese!=0 and ese_price!=0) else 0.0
     
-    # Conversion Date CSV pour vérifier doublon
-    dates_existantes = []
-    if not df_hist.empty and 'Date' in df_hist.columns:
-        dates_existantes = df_hist['Date'].astype(str).values
+    pf_idx = prev_pf_idx * (1 + pf_ret)
+    ese_idx = prev_ese_idx * (1 + ese_ret)
 
-    if today not in dates_existantes:
-        new_data = {
-            "Date": today,
-            "Total": round(total, 2),
-            "PEA": round(val_pea, 2),
+    # Sauvegarde
+    today_str = datetime.now().strftime("%d/%m/%Y")
+    
+    # Vérif doublon date
+    dates_str = []
+    if not df_hist.empty:
+        dates_str = df_hist['Date'].dt.strftime("%d/%m/%Y").values
+    
+    if today_str not in dates_str:
+        new_row = {
+            "Date": today_str,
+            "Total": round(total, 2), 
+            "PEA": round(val_pea, 2), 
             "BTC": round(val_btc, 2),
-            "Plus-value": round(pv_totale, 2),
-            "Delta": round(delta, 2),        
-            "PV_du_Jour": round(pv_jour, 2),
-            "ESE": round(ese_price, 2),
-            "Flux_(€)": 0,
-            "PF_Return_TWR": round(pf_return, 5),
-            "ESE_Return": round(ese_return, 5),
-            "PF_Index100": round(pf_index100, 2),
-            "ESE_Index100": round(ese_index100, 2)
+            "Plus-value": round(pv_totale, 2), 
+            "Delta": round(delta, 2), 
+            "PV du Jour": round(pv_jour, 2), 
+            "ESE": round(ese_price, 2), 
+            "Flux (€)": 0,
+            "PF_Return_TWR": f"{pf_ret*100:.2f}%".replace('.', ','),
+            "ESE_Return": f"{ese_ret*100:.2f}%".replace('.', ','),
+            "PF_Index100": round(pf_idx, 2), 
+            "ESE_Index100": round(ese_idx, 2),
+            "PF_Index100.1": round(pf_idx - 100, 2),
+            "ESE_Index100.1": round(ese_idx - 100, 2)
         }
         
-        new_row = pd.DataFrame([new_data])
-        df_final = pd.concat([df_hist, new_row], ignore_index=True)
+        # On passe par un DF temporaire pour concaténer
+        temp_df = pd.DataFrame([new_row])
         
-        # Sauvegarde forcée avec point-virgule pour Excel France
-        df_final.to_csv(FILE_HISTORY, index=False, sep=';')
+        # Astuce : On recharge l'historique en mode texte brut pour écrire
+        # afin de préserver le format virgule/point-virgule hybride
+        if os.path.exists(FILE_HISTORY):
+             with open(FILE_HISTORY, 'r') as f: existing_csv = f.read()
+             # On ajoute juste la ligne à la fin du fichier texte
+             # Convert new_row to csv string line
+             line = ",".join([str(v) for v in new_row.values()])
+             with open(FILE_HISTORY, 'a') as f: 
+                 f.write("\n" + line)
+        else:
+             temp_df.to_csv(FILE_HISTORY, index=False, sep=',')
+             
         return True, delta
-    
+        
     return False, 0
 
 df_history_static = load_state()
@@ -217,19 +212,19 @@ def get_prices(tickers):
 df = st.session_state['portfolio_df'].copy()
 market = get_prices(df['Ticker'].unique())
 
-df['Prix'] = df['Ticker'].apply(lambda x: market.get(x, {}).get("cur", df.loc[df['Ticker']==x, 'PRU'].values[0]))
+df['Prix_Actuel'] = df['Ticker'].apply(lambda x: market.get(x, {}).get("cur", df.loc[df['Ticker']==x, 'PRU'].values[0]))
 df['Prev'] = df['Ticker'].apply(lambda x: market.get(x, {}).get("prev", df.loc[df['Ticker']==x, 'PRU'].values[0]))
-df['Valo'] = df['Quantité'] * df['Prix']
+df['Valo'] = df['Quantité'] * df['Prix_Actuel']
 df['Investi'] = df['Quantité'] * df['PRU']
 df['PV'] = df['Valo'] - df['Investi']
-df['Perf%'] = df.apply(lambda x: ((x['Prix']-x['PRU'])/x['PRU']*100) if x['PRU']>0 else 0, axis=1)
+df['Perf%'] = df.apply(lambda x: ((x['Prix_Actuel']-x['PRU'])/x['PRU']*100) if x['PRU']>0 else 0, axis=1)
 df['Var_Jour'] = df['Valo'] - (df['Quantité'] * df['Prev'])
 
 val_btc = df[df['Ticker'].str.contains("BTC")]['Valo'].sum()
 val_pea = df[~df['Ticker'].str.contains("BTC")]['Valo'].sum()
 total_pf = df['Valo'].sum()
 total_pv = df['PV'].sum()
-volat_jour_live = df['Var_Jour'].sum() # La volatilité (P&L) du jour en live
+volat_jour_live = df['Var_Jour'].sum() 
 
 # --- 5. OPÉRATIONS ---
 def op_cash(amount):
@@ -282,7 +277,7 @@ k1, k2, k3, k4 = st.columns(4)
 k1.metric("Total", f"{total_pf:,.2f} €")
 k2.metric("PEA", f"{val_pea:,.2f} €")
 k3.metric("PV Latente", f"{total_pv:+,.2f} €")
-k4.metric("Volatilité Jour", f"{volat_jour_live:+,.2f} €", help="Gain/Perte depuis la clôture d'hier")
+k4.metric("Volatilité Jour (Yahoo)", f"{volat_jour_live:+,.2f} €", help="Gain/Perte depuis la clôture d'hier")
 
 st.markdown("---")
 
@@ -333,21 +328,20 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # BOUTON DE SAUVEGARDE (Mis à jour)
-if st.button("💾 Sauvegarder Historique"):
-        # On a retiré 'volat_jour_live' car le calcul se fait en interne maintenant
-        succes, delta_calc = add_history_point(total_pf, val_pea, val_btc, total_pv, df)
-        
+    # BOUTON DE SAUVEGARDE
+    if st.button("💾 Sauvegarder Historique"):
+        succes, d = add_history_point(total_pf, val_pea, val_btc, total_pv, df)
         if succes: 
-            st.success(f"Sauvegardé ! Delta vs Hier : {delta_calc:+.2f} €")
+            st.success(f"Sauvegardé ! Delta vs Hier : {d:+.2f} €")
             import time; time.sleep(1); st.rerun()
         else: 
             st.warning("Déjà fait aujourd'hui")
 
-tab1, tab2, tab3, tab4 = st.tabs(["Positions", "Historique", "Projection", "🔧 Correction"])
+# --- ONGLETS ---
+tab1, tab2, tab3, tab4 = st.tabs(["Positions", "Analyse & Benchmarks", "Projection", "🔧 Admin"])
 
 with tab1:
-    st.dataframe(df[['Nom','Quantité','PRU','Prix','Valo','Var_Jour','Perf%']], hide_index=True, use_container_width=True,
+    st.dataframe(df[['Nom','Quantité','PRU','Prix_Actuel','Valo','Var_Jour','Perf%']], hide_index=True, use_container_width=True,
                  column_config={"Perf%": st.column_config.ProgressColumn(min_value=-30, max_value=30, format="%.2f %%"),
                                 "Var_Jour": st.column_config.NumberColumn(format="%+.2f €")})
 
@@ -355,37 +349,49 @@ with tab2:
     if not df_history_static.empty:
         df_g = df_history_static.sort_values('Date').copy()
         
-        # --- GRAPHIQUE 1 : BENCHMARK INDEX 100 ---
+        # Graphique Benchmark Index 100
         st.subheader("Performance vs S&P 500 (Base 100)")
-        fig_bench = go.Figure()
-        # Ligne Portefeuille
-        fig_bench.add_trace(go.Scatter(x=df_g['Date'], y=df_g['PF_Index100'], mode='lines', name='Mon Portefeuille', line=dict(color='#0f172a', width=3)))
-        # Ligne Benchmark ESE
-        fig_bench.add_trace(go.Scatter(x=df_g['Date'], y=df_g['ESE_Index100'], mode='lines', name='S&P 500 (ESE)', line=dict(color='#94a3b8', width=2, dash='dot')))
-        fig_bench.update_layout(template="simple_white", hovermode="x unified")
-        st.plotly_chart(fig_bench, use_container_width=True)
+        try:
+            # Sélection par position pour éviter conflits de noms (col L et M)
+            # Dans votre CSV: Date(0)... PF_Index100(11), ESE_Index100(12)
+            
+            # On crée un index pour l'axe X
+            x_axis = df_g['Date']
+            
+            # Récupération robuste (si noms de colonnes uniques ou multiples)
+            # On cherche les colonnes qui contiennent "Index100"
+            idx_cols = [c for c in df_g.columns if "Index100" in c]
+            
+            if len(idx_cols) >= 2:
+                # On prend les deux premières (souvent les bonnes pour le graph)
+                y_pf = df_g[idx_cols[0]]
+                y_ese = df_g[idx_cols[1]]
+                
+                fig_bench = go.Figure()
+                fig_bench.add_trace(go.Scatter(x=x_axis, y=y_pf, mode='lines', name='Mon Portefeuille', line=dict(color='#0f172a', width=3)))
+                fig_bench.add_trace(go.Scatter(x=x_axis, y=y_ese, mode='lines', name='S&P 500 (ESE)', line=dict(color='#94a3b8', width=2, dash='dot')))
+                fig_bench.update_layout(template="simple_white", hovermode="x unified")
+                st.plotly_chart(fig_bench, use_container_width=True)
+        except Exception as e: st.error(f"Erreur affichage benchmark: {e}")
 
         c1, c2 = st.columns(2)
-        
-        # --- GRAPHIQUE 2 : HISTORIQUE PLUS-VALUE ---
         with c1:
-            st.subheader("Évolution Plus-Value Latente")
+            st.subheader("Plus-Value Latente")
             fig_pv = px.area(df_g, x='Date', y='Plus-value')
             fig_pv.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.1)')
             fig_pv.update_layout(template="simple_white")
             st.plotly_chart(fig_pv, use_container_width=True)
-            
-        # --- GRAPHIQUE 3 : VOLATILITÉ (PV DU JOUR) ---
         with c2:
-            st.subheader("Volatilité Quotidienne (P&L Jour)")
-            # Couleurs dynamiques (Vert si > 0, Rouge si < 0)
-            colors = ['#10b981' if v >= 0 else '#ef4444' for v in df_g['PV_du_Jour']]
-            fig_vol = go.Figure(go.Bar(x=df_g['Date'], y=df_g['PV_du_Jour'], marker_color=colors))
-            fig_vol.update_layout(template="simple_white", yaxis_title="Var. Journalière (€)")
-            st.plotly_chart(fig_vol, use_container_width=True)
+            st.subheader("Volatilité (Delta)")
+            # On utilise le Delta ici (Col F)
+            if 'Delta' in df_g.columns:
+                colors = ['#10b981' if v >= 0 else '#ef4444' for v in df_g['Delta']]
+                fig_vol = go.Figure(go.Bar(x=df_g['Date'], y=df_g['Delta'], marker_color=colors))
+                fig_vol.update_layout(template="simple_white", yaxis_title="Variation (€)")
+                st.plotly_chart(fig_vol, use_container_width=True)
             
     else:
-        st.info("Historique vide. Vérifiez que 'historique.csv' contient bien les colonnes PF_Index100 et ESE_Index100.")
+        st.info("Historique vide.")
 
 with tab3:
     st.subheader("Futur")
@@ -403,27 +409,35 @@ with tab3:
         st.plotly_chart(px.area(pd.DataFrame(res), x="Année", y="Capital", template="simple_white"), use_container_width=True)
 
 with tab4:
-    st.warning("Zone de correction manuelle. Modifiez les valeurs directement dans le tableau et cliquez sur Sauvegarder.")
+    st.warning("Zone de correction manuelle. Modifiez et sauvegardez.")
     
-    # Choix du fichier à corriger
-    file_choice = st.radio("Fichier à éditer", ["Portefeuille", "Historique"], horizontal=True)
+    file_choice = st.radio("Fichier", ["Portefeuille", "Historique"], horizontal=True)
     
     if file_choice == "Portefeuille":
-        # On utilise le Data Editor expérimental de Streamlit
-        edited_df = st.data_editor(df, num_rows="dynamic") # Permet ajout/suppression ligne
-        if st.button("💾 Sauvegarder les corrections Portefeuille"):
+        edited_df = st.data_editor(df, num_rows="dynamic")
+        if st.button("💾 Sauvegarder Portefeuille"):
             edited_df.to_csv(FILE_PORTFOLIO, index=False, sep=';')
-            st.success("Portefeuille corrigé !")
+            st.success("Sauvegardé !")
             st.rerun()
             
     else:
-        # Pour l'historique, on charge tout
         if os.path.exists(FILE_HISTORY):
             try:
-                df_h_edit = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
+                # On charge en brut pour l'éditeur
+                with open(FILE_HISTORY, 'r') as f: raw = f.read()
+                df_h_edit = pd.read_csv(io.StringIO(raw), sep=',', engine='python')
+                
+                # Editeur
                 edited_hist = st.data_editor(df_h_edit, num_rows="dynamic")
-                if st.button("💾 Sauvegarder les corrections Historique"):
-                    edited_hist.to_csv(FILE_HISTORY, index=False, sep=';')
+                
+                if st.button("💾 Sauvegarder Historique"):
+                    # AMÉLIORATION CRITIQUE : Forçage format date avant sauvegarde
+                    # Si la date est datetime, on la remet en str JJ/MM/AAAA
+                    if pd.api.types.is_datetime64_any_dtype(edited_hist['Date']):
+                        edited_hist['Date'] = edited_hist['Date'].dt.strftime('%d/%m/%Y')
+                    
+                    # Sauvegarde format "bizarre" (sep virgule, quote) pour compatibilité
+                    edited_hist.to_csv(FILE_HISTORY, index=False, sep=',', quotechar='"', quoting=1)
                     st.success("Historique corrigé !")
                     st.rerun()
-            except: st.error("Erreur chargement historique")
+            except Exception as e: st.error(f"Erreur éditeur: {e}")
