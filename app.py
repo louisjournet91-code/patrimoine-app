@@ -8,13 +8,13 @@ import os
 import io
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Ultimate Liquid Estate", layout="wide", page_icon="💎")
+st.set_page_config(page_title="Tableau de Bord", layout="wide", page_icon="💎")
 
 # --- 2. GESTION DU THÈME (DARK / LIGHT) ---
 with st.sidebar:
     st.header("⚙️ Préférences")
     dark_mode = st.toggle("🌙 Mode Sombre", value=True) # Par défaut sombre pour l'effet "Premium"
-    st.caption("Ultimate Liquid Estate v2.0")
+    st.caption("Tableau de Bord V.1.0")
 
 # Définition des palettes selon le mode
 if dark_mode:
