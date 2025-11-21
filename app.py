@@ -251,7 +251,7 @@ else:
 # --- 5. INTERFACE UTILISATEUR ---
 
 # Header
-st.markdown("## 🏛️ Ultimate Liquid Estate")
+st.markdown("## 🏛️ Tableau de Bord")
 st.caption(f"Valorisation en temps réel • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 # Hero Section
