@@ -8,130 +8,134 @@ import os
 import io
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Liquid Estate", layout="wide", page_icon="💧")
+st.set_page_config(page_title="Liquid Mesh Estate", layout="wide", page_icon="💎")
 
-# --- 2. DESIGN SYSTEM "APPLE LIQUID GLASS" ---
+# --- 2. DESIGN SYSTEM "LIQUID MESH" (L'entre-deux) ---
 st.markdown("""
 <style>
     /* IMPORT POLICE */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap');
 
-    /* FOND D'ÉCRAN (Celui de votre exemple) */
+    /* FOND D'ÉCRAN (Celui de la première version : Mesh Gradient Holographique) */
     .stApp {
-        background-image: url(https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=3764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D);
-        background-size: cover;
-        background-attachment: fixed;
-        background-position: center;
+        background-color: #f8fafc;
+        background-image: 
+            radial-gradient(at 0% 0%, hsla(253,16%,90%,1) 0, transparent 50%), 
+            radial-gradient(at 50% 0%, hsla(225,39%,90%,1) 0, transparent 50%), 
+            radial-gradient(at 100% 0%, hsla(339,49%,90%,1) 0, transparent 50%),
+            radial-gradient(at 0% 100%, hsla(280,100%,93%,1) 0, transparent 50%),
+            radial-gradient(at 100% 100%, hsla(180,100%,90%,1) 0, transparent 50%);
         font-family: 'Inter', sans-serif;
+        color: #1e293b;
     }
 
-    /* LE STYLE LIQUID GLASS (Adaptation de votre CSS) */
+    /* LE STYLE LIQUID GLASS (Celui de la deuxième version pour les cartes) */
     div[data-testid="stMetric"], 
     div[data-testid="stDataFrame"], 
     div.stPlotlyChart, 
     div.stForm,
     div.stExpander {
-        /* Fond semi-transparent blanc */
-        background-color: rgba(255, 255, 255, 0.35) !important; 
+        /* Fond semi-transparent blanc, un peu plus opaque pour le contraste sur le mesh */
+        background-color: rgba(255, 255, 255, 0.45) !important; 
         
-        /* Flou d'arrière-plan (Frosted effect) */
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        /* Flou d'arrière-plan */
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         
-        /* Arrondis prononcés */
-        border-radius: 20px;
+        /* Arrondis */
+        border-radius: 24px;
         
-        /* L'effet "Liquide" grâce aux ombres internes (Inset) */
+        /* L'effet "Liquide" (Ombres internes + Bordure nette) */
         box-shadow: 
-            0 6px 6px rgba(0, 0, 0, 0.1), /* Ombre portée douce */
-            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.6), /* Reflet haut gauche */
-            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.3); /* Reflet bas droite */
+            0 8px 32px 0 rgba(31, 38, 135, 0.07), /* Ombre portée douce */
+            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.7), /* Reflet haut */
+            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.4); /* Reflet bas */
             
-        border: 1px solid rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.8); /* Bordure blanche nette */
         padding: 20px !important;
-        transition: transform 0.2s;
+        transition: all 0.3s ease;
     }
 
-    /* Effet de survol (Légère lévitation) */
+    /* Effet de survol */
     div[data-testid="stMetric"]:hover, div.stPlotlyChart:hover {
-        transform: translateY(-4px);
-        background-color: rgba(255, 255, 255, 0.45) !important;
+        transform: translateY(-5px);
+        background-color: rgba(255, 255, 255, 0.55) !important;
         box-shadow: 
-            0 15px 30px rgba(0, 0, 0, 0.15),
-            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.8), 
-            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.4);
+            0 15px 35px rgba(31, 38, 135, 0.1),
+            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.9), 
+            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 1);
     }
 
-    /* TYPOGRAPHIE LISIBLE (Noir profond pour contraste sur le verre) */
-    h1, h2, h3, h4, p, label, .stMarkdown {
-        color: #0f172a !important;
-        text-shadow: 0 1px 1px rgba(255,255,255,0.8); /* Petit halo blanc pour lisibilité */
+    /* TYPOGRAPHIE */
+    h1, h2, h3, h4 {
+        color: #0f172a;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-shadow: 0 1px 2px rgba(255,255,255,0.5); /* Petit halo pour détacher du fond */
     }
     
-    h1 {
-        font-weight: 800;
-        letter-spacing: -1px;
-        background: rgba(255, 255, 255, 0.6);
-        backdrop-filter: blur(5px);
-        border-radius: 15px;
-        padding: 10px 20px;
-        display: inline-block;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-
     /* CHIFFRES DES MÉTRIQUES */
     div[data-testid="stMetricValue"] {
-        font-size: 28px;
+        font-size: 30px;
         font-weight: 700;
-        color: #1e293b;
+        /* Dégradé subtil sur le texte pour l'effet premium */
+        background: -webkit-linear-gradient(45deg, #0f172a, #334155);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
     div[data-testid="stMetricLabel"] {
         color: #475569;
         font-weight: 600;
+        font-size: 14px;
     }
 
-    /* SIDEBAR (Verre plus sombre pour contraste) */
+    /* SIDEBAR */
     section[data-testid="stSidebar"] {
-        background-color: rgba(240, 245, 255, 0.6);
-        backdrop-filter: blur(20px);
-        border-right: 1px solid rgba(255, 255, 255, 0.5);
+        background-color: rgba(255, 255, 255, 0.35);
+        backdrop-filter: blur(25px);
+        border-right: 1px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 5px 0 25px rgba(0,0,0,0.03);
     }
 
     /* ONGLETS */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        background-color: rgba(255,255,255,0.2);
+        gap: 12px;
+        background-color: rgba(255,255,255,0.3);
         padding: 10px;
         border-radius: 20px;
+        margin-bottom: 20px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: rgba(255, 255, 255, 0.4);
-        border-radius: 15px;
-        border: none;
-        color: #334155;
+        background-color: rgba(255, 255, 255, 0.45);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        color: #475569;
         font-weight: 600;
-        box-shadow: inset 1px 1px 1px rgba(255,255,255,0.5);
+        backdrop-filter: blur(10px);
+        transition: all 0.2s;
     }
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #ffffff;
+        background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
         color: #0f172a;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        border: 1px solid #ffffff;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     }
     
-    /* BOUTONS STYLE APPLE */
+    /* BOUTONS */
     div.stButton > button {
-        border-radius: 50px; /* Pill shape */
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border-radius: 14px;
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
         color: white;
         border: none;
         font-weight: 600;
-        padding: 0.5rem 1.5rem;
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+        padding: 0.5rem 1.2rem;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
         transition: all 0.3s;
     }
     div.stButton > button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 6px 15px rgba(37, 99, 235, 0.4);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3);
     }
 
 </style>
@@ -152,11 +156,11 @@ INITIAL_PORTFOLIO = {
     "Ticker": ["ESE.PA", "DCAM.PA", "PUST.PA", "CL2.PA", "BTC-EUR", "CASH"],
     "Nom": ["BNP S&P 500", "Amundi World", "Lyxor Nasdaq", "Amundi USA x2", "Bitcoin", "Liquidités"],
     "Type": ["ETF Action", "ETF Action", "ETF Tech", "ETF Levier", "Crypto", "Cash"],
-    "Quantité": [141.0, 716.0, 55.0, 176.0, 0.01275433, 510.84],
+    "Quantité": [141.0, 716.0, 55.0, 176.0, 0.01275433, 510.84], 
     "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
 }
 
-# --- 4. FONCTIONS ---
+# --- 4. FONCTIONS (Logique inchangée) ---
 
 def safe_float(x):
     if pd.isna(x) or x == "": return 0.0
@@ -332,7 +336,7 @@ def op_trade(sens, tick, q, p, nom=""):
 
 # --- 6. INTERFACE ---
 
-st.markdown("<h1 style='text-align: center; margin-bottom: 30px;'>💎 LIQUID ESTATE</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-bottom: 30px; font-weight: 300;'>HOLOGRAPHIC <span style='font-weight:700'>ESTATE</span></h1>", unsafe_allow_html=True)
 
 # KPI
 MONTANT_INITIAL = 15450.00 
@@ -349,35 +353,50 @@ years = days_held / 365.25
 cagr = ((total_pf / MONTANT_INITIAL) ** (1/years) - 1) * 100 if years > 0 else 0
 rendement_annuel = perf_totale_pct / years if years > 0 else 0
 
+# BENTO LAYOUT
 st.markdown("#### 🔭 Vue Satellite")
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Portefeuille Total", f"{total_pf:,.2f} €")
+c1.metric("Portefeuille Net", f"{total_pf:,.2f} €")
 c2.metric("Montant Initial", f"{MONTANT_INITIAL:,.2f} €")
-c3.metric("Liquidités", f"{cash_dispo:,.2f} €")
-c4.metric("PV du Jour", f"{volat_jour_live:+,.2f} €")
+c3.metric("Trésorerie", f"{cash_dispo:,.2f} €", f"{(cash_dispo/total_pf)*100:.1f}%")
+c4.metric("Variation Jour", f"{volat_jour_live:+,.2f} €")
 
 st.write("")
 
 st.markdown("#### 🚀 Performance Actifs")
 c5, c6, c7, c8 = st.columns(4)
 c5.metric("Valorisation Investi", f"{valo_investi:,.2f} €")
-c6.metric("Montant Investi", f"{cout_investi:,.2f} €")
-c7.metric("Perf. Actif (€)", f"{perf_actif_eur:+,.2f} €")
-c8.metric("Perf. Actif (%)", f"{perf_actif_pct:+.2f} %")
+c6.metric("Coût (PRU)", f"{cout_investi:,.2f} €")
+c7.metric("Perf. Actifs", f"{perf_actif_eur:+,.2f} €", f"{perf_actif_pct:+.2f} %")
+c8.metric("Perf. Totale", f"{perf_totale_eur:+,.2f} €", f"{perf_totale_pct:+.2f} %")
 
 st.write("")
 
-st.markdown("#### ⏱️ Performance Temporelle")
-c9, c10, c11, c12 = st.columns(4)
-c9.metric("Perf. Totale (€)", f"{perf_totale_eur:+,.2f} €")
-c10.metric("Perf. Totale (%)", f"{perf_totale_pct:+.2f} %")
-c11.metric("Rendement/An", f"{rendement_annuel:.2f} %")
-c12.metric("CAGR", f"{cagr:.2f} %")
+col_kpi_time, col_graph_time = st.columns([1, 3])
+with col_kpi_time:
+    st.markdown("#### ⏳ Temps")
+    st.metric("Rendement/An", f"{rendement_annuel:.2f} %")
+    st.metric("CAGR", f"{cagr:.2f} %")
+
+with col_graph_time:
+    if not df_history_static.empty:
+        df_g = df_history_static.sort_values('Date').copy()
+        fig_mini = px.area(df_g, x='Date', y='Total', height=280)
+        fig_mini.update_layout(
+            margin=dict(l=0, r=0, t=0, b=0),
+            xaxis=dict(showgrid=False, title=None), 
+            yaxis=dict(showgrid=False, title=None, visible=False),
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            showlegend=False
+        )
+        fig_mini.update_traces(line_color='#0f172a', fillcolor='rgba(15, 23, 42, 0.05)')
+        st.plotly_chart(fig_mini, use_container_width=True)
 
 st.markdown("---")
 
+# SIDEBAR
 with st.sidebar:
-    st.header("Opérations")
+    st.header("🕹️ Centre de Contrôle")
     with st.expander("💰 Trésorerie", expanded=True):
         mnt = st.number_input("Montant (€)", step=100.0)
         if st.button("Valider Virement", type="secondary", use_container_width=True):
@@ -407,6 +426,7 @@ with st.sidebar:
         if succes: st.success(f"Sauvegardé ! Delta : {d:+.2f} €"); import time; time.sleep(1); st.rerun()
         else: st.warning("Déjà fait aujourd'hui")
 
+# ONGLETS
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Positions", "📊 Benchmarks", "🔮 Projection", "🔧 Admin"])
 
 with tab1:
