@@ -505,8 +505,10 @@ with tab2:
                 st.plotly_chart(fig_b, use_container_width=True)
         except: pass
     else: st.info("Pas d'historique.")
-    # --- NOUVEAU : MONITOR DE MARCHÉ ---
+# 1. MONITOR DE MARCHÉ (Nouveau : Placé en haut)
     st.subheader("🌍 Marchés & Indices")
+    
+    # On appelle la fonction de calcul (assurez-vous de l'avoir collée dans la partie 4 FONCTIONS)
     df_market = get_market_monitor()
     
     if not df_market.empty:
@@ -517,12 +519,29 @@ with tab2:
             column_config={
                 "Indice": st.column_config.TextColumn("Actif", width="medium"),
                 "Prix": st.column_config.NumberColumn("Niveau", format="%.2f"),
-                "1J": st.column_config.ProgressColumn("Jour", format="%+.2f %%", min_value=-0.05, max_value=0.05),
-                "1M": st.column_config.ProgressColumn("1 Mois", format="%+.2f %%", min_value=-0.10, max_value=0.10),
-                "Volatilité": st.column_config.NumberColumn("Volatilité (An)", format="%.1f %%")
+                # Configuration précise pour afficher les variations en % (ex: 0.01 = 1%)
+                "1J": st.column_config.ProgressColumn(
+                    "Jour", 
+                    format="%+.2f %%", 
+                    min_value=-0.03, max_value=0.03, # Echelle de -3% à +3%
+                    help="Variation journalière"
+                ),
+                "1M": st.column_config.ProgressColumn(
+                    "1 Mois", 
+                    format="%+.2f %%", 
+                    min_value=-0.10, max_value=0.10, # Echelle de -10% à +10%
+                    help="Variation sur 1 mois glissant"
+                ),
+                "Volatilité": st.column_config.NumberColumn(
+                    "Volatilité (An)", 
+                    format="%.1f %%",
+                    help="Volatilité annualisée sur 30 jours"
+                )
             }
         )
-    
+    else:
+        st.info("Chargement des données de marché...")
+
     st.markdown("---")
 
 with tab3:
