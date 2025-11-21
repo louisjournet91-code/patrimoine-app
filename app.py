@@ -43,7 +43,7 @@ INITIAL_PORTFOLIO = {
     "Nom": ["BNP S&P 500", "Amundi World", "Lyxor Nasdaq", "Amundi USA x2", "Bitcoin", "Liquidités"],
     "Type": ["ETF Action", "ETF Action", "ETF Tech", "ETF Levier", "Crypto", "Cash"],
     "Quantité": [141.0, 716.0, 55.0, 176.0, 0.01275433, 510.84], # Précision BTC ici
-    "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
+    "PRU": [24.4058, 4.6779, 71.7305, 19.707100, 90165.46, 1.00]
 }
 
 # --- 3. FONCTIONS DE LECTURE INTELLIGENTE ---
