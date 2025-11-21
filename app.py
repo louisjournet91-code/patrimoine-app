@@ -7,557 +7,401 @@ from datetime import datetime
 import os
 import io
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION & STYLE PREMIUM ---
 st.set_page_config(page_title="Ultimate Liquid Estate", layout="wide", page_icon="💎")
 
-# --- 2. DESIGN SYSTEM "ULTIMATE GLASS" ---
 st.markdown("""
 <style>
-    /* IMPORT POLICE MODERNE */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap');
 
-    /* FOND MAILLÉ (MESH GRADIENT) PLUS LUMINEUX */
+    /* FOND HAUTE DÉFINITION */
     .stApp {
         background-color: #f0f4f8;
         background-image: 
             radial-gradient(at 0% 0%, hsla(210,100%,96%,1) 0, transparent 50%), 
             radial-gradient(at 50% 0%, hsla(220,100%,93%,1) 0, transparent 50%), 
             radial-gradient(at 100% 0%, hsla(190,100%,94%,1) 0, transparent 50%),
-            radial-gradient(at 0% 100%, hsla(260,100%,95%,1) 0, transparent 50%),
-            radial-gradient(at 80% 100%, hsla(240,100%,96%,1) 0, transparent 50%),
-            radial-gradient(at 0% 50%, hsla(340,100%,96%,1) 0, transparent 50%);
+            radial-gradient(at 0% 100%, hsla(260,100%,95%,1) 0, transparent 50%);
         font-family: 'Outfit', sans-serif;
         color: #1e293b;
     }
 
-    /* --- LE STYLE LIQUID GLASS AVANCÉ --- */
-    
-    /* Conteneurs génériques (Métriques, Charts) */
-    div[data-testid="stMetric"], 
-    div[data-testid="stDataFrame"], 
-    div.stPlotlyChart, 
-    div.stForm,
-    div.stExpander {
-        background: rgba(255, 255, 255, 0.6) !important;
-        backdrop-filter: blur(20px) saturate(180%);
-        -webkit-backdrop-filter: blur(20px) saturate(180%);
+    /* GLASSMORPHISM RAFFINÉ */
+    div[data-testid="stMetric"], div[data-testid="stDataFrame"], div.stPlotlyChart, div.stForm, div.stExpander {
+        background: rgba(255, 255, 255, 0.65) !important;
+        backdrop-filter: blur(25px) saturate(180%);
         border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.8);
-        box-shadow: 
-            0 10px 40px rgba(0, 0, 0, 0.06),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.5); /* Double bordure interne */
-        padding: 24px !important;
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+        padding: 20px !important;
+        transition: transform 0.2s ease-in-out;
     }
+    div[data-testid="stMetric"]:hover { transform: translateY(-3px); }
 
-    /* Effet de survol "Lévitation" */
-    div[data-testid="stMetric"]:hover, div.stPlotlyChart:hover {
-        transform: translateY(-6px);
-        box-shadow: 
-            0 20px 50px rgba(30, 41, 59, 0.12),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.9);
-    }
+    /* TYPOGRAPHIE */
+    h1, h2, h3 { color: #0f172a; font-weight: 800; letter-spacing: -0.5px; }
+    div[data-testid="stMetricLabel"] { font-size: 14px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    div[data-testid="stMetricValue"] { font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #0f172a 0%, #334155 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-    /* --- TYPOGRAPHIE PREMIUM --- */
-    h1, h2, h3 {
-        color: #0f172a;
-        font-weight: 800;
-        letter-spacing: -0.5px;
-    }
-    
-    /* Label des métriques (Petit texte) */
-    div[data-testid="stMetricLabel"] {
-        font-size: 15px;
-        color: #64748b;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    /* Valeur des métriques (Gros chiffres) */
-    div[data-testid="stMetricValue"] {
-        font-size: 36px;
-        font-weight: 800;
-        background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        padding-bottom: 5px; /* Pour laisser place aux jambages */
-    }
-
-    /* --- ÉLÉMENTS SPÉCIFIQUES --- */
-
-    /* Sidebar Givrée */
-    section[data-testid="stSidebar"] {
-        background-color: rgba(255, 255, 255, 0.4);
-        backdrop-filter: blur(30px);
-        border-right: 1px solid rgba(255, 255, 255, 0.6);
-    }
-
-    /* Onglets "Pill" */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        background: rgba(255,255,255,0.4);
-        padding: 8px;
-        border-radius: 20px;
-        border: 1px solid rgba(255,255,255,0.5);
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 40px;
-        border-radius: 12px;
-        border: none;
-        color: #64748b;
-        font-weight: 600;
-        background: transparent;
-    }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background: #ffffff;
-        color: #0f172a;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-
-    /* Boutons CTA */
-    div.stButton > button {
-        width: 100%;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-        color: white;
-        font-weight: 600;
-        border: none;
-        padding: 0.6rem 1rem;
-        box-shadow: 0 4px 15px rgba(15, 23, 42, 0.2);
-        transition: all 0.2s;
-    }
-    div.stButton > button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.3);
-    }
-
-    /* Custom CSS Class pour la "Hero Metric" (Total Patrimoine) */
-    /* Cette classe sera appliquée artificiellement via l'ordre des éléments */
-    
+    /* SIDEBAR & BOUTONS */
+    section[data-testid="stSidebar"] { background-color: rgba(255, 255, 255, 0.5); backdrop-filter: blur(40px); border-right: 1px solid rgba(255,255,255,0.6); }
+    div.stButton > button { border-radius: 14px; background: #0f172a; color: white; font-weight: 600; border: none; padding: 0.5rem 1rem; transition: all 0.2s; }
+    div.stButton > button:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. DONNÉES & LOGIQUE (INCHANGÉES) ---
+# --- 2. GESTION DES DONNÉES ROBUSTE ---
 
 FILE_PORTFOLIO = 'portefeuille.csv'
 FILE_HISTORY = 'historique.csv'
 
-HIST_COLS = ["Date", "Total", "PEA", "BTC", "Plus-value", "Delta", "PV du Jour", "ESE", "Flux (€)", "PF_Return_TWR", "ESE_Return", "PF_Index100", "ESE_Index100"]
-
+# Structure initiale si fichiers absents
 INITIAL_PORTFOLIO = {
-    "Ticker": ["ESE.PA", "DCAM.PA", "PUST.PA", "CL2.PA", "BTC-EUR", "CASH"],
-    "Nom": ["BNP S&P 500", "Amundi World", "Lyxor Nasdaq", "Amundi USA x2", "Bitcoin", "Liquidités"],
-    "Type": ["ETF Action", "ETF Action", "ETF Tech", "ETF Levier", "Crypto", "Cash"],
-    "Quantité": [141.0, 716.0, 55.0, 176.0, 0.0142413, 510.84],
-    "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
+    "Ticker": ["ESE.PA", "CW8.PA", "BTC-EUR", "CASH"],
+    "Nom": ["S&P 500 BNP", "MSCI World", "Bitcoin", "Liquidités"],
+    "Type": ["ETF Action", "ETF Action", "Crypto", "Cash"],
+    "Quantité": [0.0, 0.0, 0.0, 1000.0],
+    "PRU": [0.0, 0.0, 0.0, 1.0]
 }
 
 def safe_float(x):
-    if pd.isna(x) or x == "": return 0.0
+    """Conversion sécurisée en float pour éviter les crashs."""
+    if pd.isna(x) or str(x).strip() == "": return 0.0
     s = str(x).strip().replace('"', '').replace('%', '').replace('€', '').replace(' ', '').replace(',', '.')
     try: return float(s)
     except: return 0.0
 
 def load_state():
+    """Chargement et réparation automatique des fichiers."""
+    # 1. Portefeuille
     if 'portfolio_df' not in st.session_state:
         if os.path.exists(FILE_PORTFOLIO):
             try:
                 df = pd.read_csv(FILE_PORTFOLIO, sep=';')
-                if df.shape[1] < 2: df = pd.read_csv(FILE_PORTFOLIO, sep=',')
+                if df.shape[1] < 2: df = pd.read_csv(FILE_PORTFOLIO, sep=',') # Fallback separateur
             except: df = pd.DataFrame(INITIAL_PORTFOLIO)
         else:
             df = pd.DataFrame(INITIAL_PORTFOLIO)
             df.to_csv(FILE_PORTFOLIO, index=False, sep=';')
-        df['Quantité'] = df['Quantité'].apply(safe_float)
-        df['PRU'] = df['PRU'].apply(safe_float)
+        
+        # Nettoyage des types
+        for col in ['Quantité', 'PRU']:
+            df[col] = df[col].apply(safe_float)
         st.session_state['portfolio_df'] = df
 
+    # 2. Historique
     if os.path.exists(FILE_HISTORY):
         try:
             with open(FILE_HISTORY, 'r') as f: raw_data = f.read()
             df_hist = pd.read_csv(io.StringIO(raw_data), sep=',', engine='python')
-            for col in [c for c in df_hist.columns if c != "Date"]:
-                df_hist[col] = df_hist[col].apply(safe_float)
             df_hist['Date'] = pd.to_datetime(df_hist['Date'], dayfirst=True, errors='coerce')
             df_hist = df_hist.dropna(subset=['Date'])
-        except: df_hist = pd.DataFrame(columns=HIST_COLS)
-    else: df_hist = pd.DataFrame(columns=HIST_COLS)
-    return df_hist
+            # Conversion colonnes numériques
+            cols_num = [c for c in df_hist.columns if c != "Date"]
+            for c in cols_num: df_hist[c] = df_hist[c].apply(safe_float)
+            return df_hist
+        except: pass
+    return pd.DataFrame(columns=["Date", "Total", "Delta"])
 
 def save_portfolio():
     st.session_state['portfolio_df'].to_csv(FILE_PORTFOLIO, index=False, sep=';')
 
-def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
-    df_hist = load_state()
-    prev_total, prev_ese, prev_pf_idx, prev_ese_idx = (0.0, 0.0, 100.0, 100.0)
-    
-    if not df_hist.empty:
-        last = df_hist.iloc[-1]
-        prev_total = last.get('Total', 0)
-        prev_ese = last.get('ESE', 0)
-        prev_pf_idx = last.get('PF_Index100', 100) 
-        if isinstance(prev_pf_idx, pd.Series): prev_pf_idx = prev_pf_idx.iloc[0]
-        prev_ese_idx = last.get('ESE_Index100', 100)
-        if isinstance(prev_ese_idx, pd.Series): prev_ese_idx = prev_ese_idx.iloc[0]
-    else: prev_total = total
+# --- 3. LOGIQUE FINANCIÈRE ---
 
-    try: ese_price = df_pf.loc[df_pf['Ticker'].str.contains("ESE"), 'Prix_Actuel'].values[0]
-    except: ese_price = 0.0
-    
-    flux = 0.0
-    delta = total - prev_total
-    pv_jour = delta - flux
-    denom = prev_total + flux
-    pf_ret = (delta - flux) / denom if denom != 0 else 0.0
-    ese_ret = (ese_price - prev_ese)/prev_ese if (prev_ese!=0 and ese_price!=0) else 0.0
-    pf_idx = prev_pf_idx * (1 + pf_ret)
-    ese_idx = prev_ese_idx * (1 + ese_ret)
-
-    today_str = datetime.now().strftime("%d/%m/%Y")
-    dates_str = []
-    if not df_hist.empty: dates_str = df_hist['Date'].dt.strftime("%d/%m/%Y").values
-    
-    if today_str not in dates_str:
-        new_row = {
-            "Date": today_str, "Total": round(total, 2), "PEA": round(val_pea, 2), "BTC": round(val_btc, 2),
-            "Plus-value": round(pv_totale, 2), "Delta": round(delta, 2), "PV du Jour": round(pv_jour, 2), 
-            "ESE": round(ese_price, 2), "Flux (€)": 0, 
-            "PF_Return_TWR": f"{pf_ret*100:.2f}%".replace('.', ','), "ESE_Return": f"{ese_ret*100:.2f}%".replace('.', ','),
-            "PF_Index100": round(pf_idx, 2), "ESE_Index100": round(ese_idx, 2),
-            "PF_Index100.1": round(pf_idx - 100, 2), "ESE_Index100.1": round(ese_idx - 100, 2)
-        }
-        if os.path.exists(FILE_HISTORY):
-             line = ",".join([str(v) for v in new_row.values()])
-             with open(FILE_HISTORY, 'a') as f: f.write("\n" + line)
-        else: pd.DataFrame([new_row]).to_csv(FILE_HISTORY, index=False, sep=',')
-        return True, delta
-    return False, 0
-
-df_history_static = load_state()
-
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300) # Cache de 5 minutes pour ne pas spammer Yahoo
 def get_prices(tickers):
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
-    real = [t for t in tickers if t != "CASH"]
-    if real:
-        try:
-            d = yf.download(real, period="5d", progress=False)['Close']
-            if len(real) == 1:
-                prices[real[0]] = {"cur": float(d.iloc[-1]), "prev": float(d.iloc[-2])}
-            else:
-                l, p = d.iloc[-1], d.iloc[-2]
-                for t in real:
-                    if t in l.index: prices[t] = {"cur": float(l[t]), "prev": float(p[t])}
-        except: pass
+    real_tickers = [t for t in tickers if t != "CASH" and isinstance(t, str)]
+    
+    if not real_tickers: return prices
+
+    try:
+        # Téléchargement en bloc plus efficace
+        data = yf.download(real_tickers, period="5d", progress=False)['Close']
+        
+        # Gestion si un seul ticker (retourne Series) ou plusieurs (DataFrame)
+        if len(real_tickers) == 1:
+            data = data.to_frame(name=real_tickers[0])
+            
+        if not data.empty:
+            last_row = data.iloc[-1]
+            prev_row = data.iloc[-2] if len(data) > 1 else last_row
+            
+            for t in real_tickers:
+                if t in last_row.index:
+                    # Gestion des NaN
+                    cur = float(last_row[t]) if not pd.isna(last_row[t]) else 0.0
+                    prev = float(prev_row[t]) if not pd.isna(prev_row[t]) else cur
+                    prices[t] = {"cur": cur, "prev": prev}
+    except Exception as e:
+        st.toast(f"Erreur API Yahoo: {e}", icon="⚠️")
+        
     return prices
 
-df = st.session_state['portfolio_df'].copy()
-market = get_prices(df['Ticker'].unique())
+# --- 4. FONCTIONS OPÉRATIONNELLES ---
 
-df['Prix_Actuel'] = df['Ticker'].apply(lambda x: market.get(x, {}).get("cur", df.loc[df['Ticker']==x, 'PRU'].values[0]))
-df['Prev'] = df['Ticker'].apply(lambda x: market.get(x, {}).get("prev", df.loc[df['Ticker']==x, 'PRU'].values[0]))
-df['Valo'] = df['Quantité'] * df['Prix_Actuel']
-df['Investi'] = df['Quantité'] * df['PRU']
-df['PV'] = df['Valo'] - df['Investi']
-df['Perf%'] = df.apply(lambda x: ((x['Prix_Actuel']-x['PRU'])/x['PRU']*100) if x['PRU']>0 else 0, axis=1)
-df['Var_Jour'] = df['Valo'] - (df['Quantité'] * df['Prev'])
-
-@st.cache_data(ttl=3600)
-def get_market_monitor():
-    targets = {
-        "INDEX CBOE:VIX": "^VIX",
-        "CAC 40": "^FCHI",
-        "SP 500": "^GSPC",
-        "ETF MSCI World Amundi": "CW8.PA",
-        "Emerging Market": "PAEEM.PA",
-        "MSCI Europe": "PCEU.PA",
-        "Euro Stoxx 50": "^STOXX50E",
-        "Emerging Market ex Egypt": "PLEM.PA"
-    }
-    
-    data = []
-    
-    try:
-        tickers_list = list(targets.values())
-        hist = yf.download(tickers_list, period="3mo", progress=False)['Close']
-        
-        for name, ticker in targets.items():
-            if ticker in hist.columns:
-                # Conversion en float pour éviter les bugs
-                series = hist[ticker].dropna().astype(float)
-                
-                if len(series) >= 22:
-                    current = series.iloc[-1]
-                    prev = series.iloc[-2]
-                    month_ago = series.iloc[-22] # ~1 mois ouvré
-                    
-                    # --- CORRECTION MAJEURE ICI : MULTIPLICATION PAR 100 ---
-                    # (Valeur Finale - Valeur Initiale) / Valeur Initiale * 100
-                    
-                    if prev != 0: 
-                        perf_d = ((current - prev) / prev) * 100 
-                    else: perf_d = 0.0
-                        
-                    if month_ago != 0: 
-                        perf_m = ((current - month_ago) / month_ago) * 100
-                    else: perf_m = 0.0
-                    
-                    data.append({
-                        "Indice": name,
-                        "Ticker": ticker,
-                        "Prix actuel": current,
-                        "Perf. du Jour": perf_d, # Sera par ex 5.50 (pour 5.5%)
-                        "Perf 1 Mois": perf_m    # Sera par ex 40.2 (pour 40.2%)
-                    })
-            else:
-                data.append({
-                    "Indice": name, "Ticker": ticker, 
-                    "Prix actuel": 0.0, "Perf. du Jour": 0.0, "Perf 1 Mois": 0.0
-                })
-                
-    except Exception as e: st.error(e)
-    
-    df = pd.DataFrame(data)
-    return df[["Indice", "Ticker", "Prix actuel", "Perf. du Jour", "Perf 1 Mois"]]
-
-# --- CALCULS TOTAUX ---
-val_btc = df[df['Ticker'].str.contains("BTC")]['Valo'].sum()
-val_pea = df[~df['Ticker'].str.contains("BTC")]['Valo'].sum()
-total_pf = df['Valo'].sum()
-total_pv = df['PV'].sum()
-
-# --- MODIFICATION : CALCUL DE LA VARIATION (Total Actuel - Total Historique) ---
-if not df_history_static.empty:
-    # On récupère le dernier montant total enregistré dans le CSV (La veille)
-    dernier_total_historique = df_history_static.iloc[-1]['Total']
-    
-    # Calcul : Aujourd'hui - Veille
-    volat_jour_live = total_pf - dernier_total_historique
-else:
-    volat_jour_live = 0.0
-
-def op_cash(amount):
+def operation_tresorerie(amount):
+    """Ajoute ou retire du cash du portefeuille."""
     df = st.session_state['portfolio_df']
+    
+    # Vérifier si la ligne CASH existe, sinon la créer
+    if 'CASH' not in df['Ticker'].values:
+        new_row = pd.DataFrame([{"Ticker": "CASH", "Nom": "Liquidités", "Type": "Cash", "Quantité": 0.0, "PRU": 1.0}])
+        df = pd.concat([df, new_row], ignore_index=True)
+    
     mask = df['Ticker'] == 'CASH'
-    if not mask.any():
-         new_cash = pd.DataFrame([{"Ticker": "CASH", "Nom": "Liquidités", "Type": "Cash", "Quantité": 0.0, "PRU": 1.0}])
-         df = pd.concat([df, new_cash], ignore_index=True)
-         mask = df['Ticker'] == 'CASH'
-    current = df.loc[mask, 'Quantité'].values[0]
-    df.loc[mask, 'Quantité'] = current + amount
+    current_qty = df.loc[mask, 'Quantité'].values[0]
+    
+    # Mise à jour
+    df.loc[mask, 'Quantité'] = current_qty + amount
+    df.loc[mask, 'PRU'] = 1.0 # Le cash vaut toujours 1
+    
     st.session_state['portfolio_df'] = df
     save_portfolio()
 
 def op_trade(sens, tick, q, p, nom=""):
     df = st.session_state['portfolio_df']
+    
+    # Init ticker si inconnu
     if tick not in df['Ticker'].values:
-        if sens=="Vente": return False, "Inconnu"
+        if sens == "Vente": return False, "Actif inconnu, impossible de vendre."
         new_row = pd.DataFrame([{"Ticker": tick, "Nom": nom, "Type": "Action", "Quantité": 0.0, "PRU": 0.0}])
         df = pd.concat([df, new_row], ignore_index=True)
-    mask_a = df['Ticker'] == tick
-    mask_c = df['Ticker'] == 'CASH'
-    cash = df.loc[mask_c, 'Quantité'].values[0]
-    cur_q = df.loc[mask_a, 'Quantité'].values[0]
-    cur_p = df.loc[mask_a, 'PRU'].values[0]
-    tot = q*p
-    if sens=="Achat":
-        if cash < tot: return False, "Manque Cash"
-        new_q = cur_q + q
-        new_p = ((cur_q*cur_p)+tot)/new_q
-        df.loc[mask_a, 'Quantité'] = new_q
-        df.loc[mask_a, 'PRU'] = new_p
-        df.loc[mask_c, 'Quantité'] = cash - tot
-    elif sens=="Vente":
-        if cur_q < q: return False, "Manque Titres"
-        df.loc[mask_a, 'Quantité'] = cur_q - q
-        df.loc[mask_c, 'Quantité'] = cash + tot
+    
+    mask_asset = df['Ticker'] == tick
+    mask_cash = df['Ticker'] == 'CASH'
+    
+    # Sécurité Cash
+    if 'CASH' not in df['Ticker'].values: operation_tresorerie(0)
+    
+    cash_dispo = df.loc[mask_cash, 'Quantité'].values[0]
+    cur_qty = df.loc[mask_asset, 'Quantité'].values[0]
+    cur_pru = df.loc[mask_asset, 'PRU'].values[0]
+    total_op = q * p
+
+    if sens == "Achat":
+        if cash_dispo < total_op: return False, "Trésorerie insuffisante."
+        # Calcul du PAMP (Prix Moyen Pondéré)
+        new_qty = cur_qty + q
+        new_pru = ((cur_qty * cur_pru) + total_op) / new_qty
+        
+        df.loc[mask_asset, 'Quantité'] = new_qty
+        df.loc[mask_asset, 'PRU'] = new_pru
+        df.loc[mask_cash, 'Quantité'] = cash_dispo - total_op
+        
+    elif sens == "Vente":
+        if cur_qty < q: return False, "Quantité de titres insuffisante."
+        df.loc[mask_asset, 'Quantité'] = cur_qty - q
+        # PRU ne change pas à la vente fiscale en France (généralement)
+        df.loc[mask_cash, 'Quantité'] = cash_dispo + total_op
+
     st.session_state['portfolio_df'] = df
     save_portfolio()
-    return True, "Succès"
+    return True, "Ordre exécuté avec succès."
 
-# --- 6. INTERFACE UTILISATEUR BENTO ---
+def add_history_point(metrics):
+    """Enregistre l'état actuel dans l'historique."""
+    df_hist = load_state()
+    today = datetime.now().strftime("%d/%m/%Y")
+    
+    # Eviter doublons jour même
+    dates_existantes = []
+    if not df_hist.empty and 'Date' in df_hist.columns:
+        dates_existantes = df_hist['Date'].dt.strftime("%d/%m/%Y").values
+        
+    if today in dates_existantes:
+        return False, 0.0
 
-# En-tête Minimaliste
-col_logo, col_title = st.columns([1, 5])
-with col_title:
-    st.markdown("## 🏛️ Patrimoine")
-    st.caption(f"Dernière valorisation : {datetime.now().strftime('%d %B %Y • %H:%M')}")
+    prev_total = df_hist.iloc[-1]['Total'] if not df_hist.empty else metrics['Total']
+    delta = metrics['Total'] - prev_total
+    
+    new_row = {
+        "Date": today,
+        "Total": round(metrics['Total'], 2),
+        "Delta": round(delta, 2),
+        "PEA": round(metrics['PEA'], 2),
+        "Crypto": round(metrics['Crypto'], 2),
+        "Cash": round(metrics['Cash'], 2)
+    }
+    
+    # Sauvegarde CSV manuelle pour éviter les bugs de format
+    line = ",".join([str(v) for v in new_row.values()])
+    mode = 'a' if os.path.exists(FILE_HISTORY) else 'w'
+    with open(FILE_HISTORY, mode) as f:
+        if mode == 'w': f.write(",".join(new_row.keys()) + "\n")
+        else: f.write("\n")
+        f.write(line)
+        
+    return True, delta
 
-# --- HERO SECTION (Le Gros Chiffre) ---
-# On crée une "Box" spéciale pour le montant total
-st.markdown("""
-<div style="background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); 
+# --- 5. CALCULS & PRÉPARATION ---
+
+df_hist_static = load_state()
+df = st.session_state['portfolio_df'].copy()
+
+# Récupération Prix Marché
+market_prices = get_prices(df['Ticker'].unique())
+
+# Enrichissement DataFrame
+df['Prix_Actuel'] = df['Ticker'].apply(lambda x: market_prices.get(x, {}).get("cur", df.loc[df['Ticker']==x, 'PRU'].values[0]))
+df['Prev_Price'] = df['Ticker'].apply(lambda x: market_prices.get(x, {}).get("prev", df.loc[df['Ticker']==x, 'PRU'].values[0]))
+
+df['Valo'] = df['Quantité'] * df['Prix_Actuel']
+df['Investi'] = df['Quantité'] * df['PRU']
+df['PV_Latente'] = df['Valo'] - df['Investi']
+df['Perf_%'] = df.apply(lambda x: ((x['Prix_Actuel']-x['PRU'])/x['PRU']*100) if x['PRU']>0 else 0, axis=1)
+df['Var_Jour_€'] = df['Valo'] - (df['Quantité'] * df['Prev_Price'])
+
+# KPIs Globaux
+total_pf = df['Valo'].sum()
+cash_val = df[df['Ticker'] == 'CASH']['Valo'].sum()
+crypto_val = df[df['Type'] == 'Crypto']['Valo'].sum()
+pea_val = total_pf - cash_val - crypto_val
+total_pv = df['PV_Latente'].sum()
+
+metrics_dict = {"Total": total_pf, "PEA": pea_val, "Crypto": crypto_val, "Cash": cash_val}
+
+# Variation journalière (Live vs Hier Clôture)
+var_jour_live = df['Var_Jour_€'].sum()
+
+# --- 6. INTERFACE BENTO ---
+
+col_head1, col_head2 = st.columns([1, 4])
+with col_head2:
+    st.title("🏛️ Patrimoine")
+    st.caption(f"Mise à jour : {datetime.now().strftime('%d %B %Y • %H:%M')}")
+
+# HERO METRIC
+st.markdown(f"""
+<div style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); 
             padding: 30px; border-radius: 24px; border: 1px solid white; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center;">
-    <p style="color: #64748b; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin: 0;">Patrimoine Net</p>
-    <h1 style="font-size: 56px; margin: 0; background: -webkit-linear-gradient(45deg, #0f172a, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        """ + f"{total_pf:,.2f} €" + """
+            box-shadow: 0 10px 30px rgba(0,0,0,0.03); margin-bottom: 20px; text-align: center;">
+    <p style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Valeur Nette Totale</p>
+    <h1 style="font-size: 60px; margin: 0; background: -webkit-linear-gradient(45deg, #1e293b, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        {total_pf:,.2f} €
     </h1>
-    <p style="color: #10b981; font-weight: 600; margin-top: 5px;">
-        """ + f"{volat_jour_live:+.2f} € (24h)" + """
-    </p>
+    <div style="display: flex; justify-content: center; gap: 20px; margin-top: 10px;">
+        <span style="color: {'#10b981' if var_jour_live >= 0 else '#ef4444'}; font-weight: 600;">
+            {var_jour_live:+.2f} € (24h)
+        </span>
+        <span style="color: {'#10b981' if total_pv >= 0 else '#ef4444'}; font-weight: 600;">
+            Total PV: {total_pv:+.2f} €
+        </span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Calculs
-MONTANT_INITIAL = 15450.00 
-DATE_DEBUT = datetime(2022, 1, 1)
-cash_dispo = df[df['Ticker']=='CASH']['Valo'].sum()
-valo_investi = df[df['Ticker']!='CASH']['Valo'].sum()
-cout_investi = df[df['Ticker']!='CASH']['Investi'].sum()
-perf_totale_eur = total_pf - MONTANT_INITIAL
-perf_totale_pct = (perf_totale_eur / MONTANT_INITIAL) * 100
-perf_actif_eur = valo_investi - cout_investi
-perf_actif_pct = (perf_actif_eur / cout_investi) * 100 if cout_investi != 0 else 0
-days_held = (datetime.now() - DATE_DEBUT).days
-years = days_held / 365.25
-cagr = ((total_pf / MONTANT_INITIAL) ** (1/years) - 1) * 100 if years > 0 else 0
-rendement_annuel = perf_totale_pct / years if years > 0 else 0
-
-# --- GRID PRINCIPAL (BENTO) ---
-c1, c2, c3 = st.columns([1, 1, 1])
-
-with c1:
-    st.markdown("##### 💰 Liquidité")
-    st.metric("Cash Dispo", f"{cash_dispo:,.2f} €", delta=None)
-    st.metric("Ratio Cash", f"{(cash_dispo/total_pf)*100:.1f} %")
-
-with c2:
-    st.markdown("##### 🚀 Performance")
-    st.metric("Plus-Value Totale", f"{perf_totale_eur:+,.2f} €", f"{perf_totale_pct:+.2f} %")
-    st.metric("Plus-Value Actifs", f"{perf_actif_eur:+,.2f} €", f"{perf_actif_pct:+.2f} %")
-
-with c3:
-    st.markdown("##### ⏳ Temps & Objectifs")
-    st.metric("CAGR (Annuel)", f"{cagr:.2f} %")
+# DASHBOARD GRID
+c1, c2, c3 = st.columns(3)
+c1.metric("Liquidités", f"{cash_val:,.2f} €", f"{(cash_val/total_pf)*100:.1f} % Alloc.")
+c2.metric("Actions (PEA/CTO)", f"{pea_val:,.2f} €", f"{(pea_val/total_pf)*100:.1f} % Alloc.")
+c3.metric("Crypto-actifs", f"{crypto_val:,.2f} €", f"{(crypto_val/total_pf)*100:.1f} % Alloc.")
 
 st.markdown("---")
 
-# --- SIDEBAR GESTION ---
+# SIDEBAR DE CONTRÔLE
 with st.sidebar:
-    st.header("🕹️ Centre de Contrôle")
-    with st.expander("💰 Trésorerie", expanded=True):
-        mnt = st.number_input("Montant (€)", step=100.0)
-        if st.button("Valider Virement", type="secondary"):
-            if mnt > 0: operation_tresorerie(mnt); st.success("OK"); st.rerun()
-    st.write("")
-    with st.expander("📈 Trading", expanded=True):
-        sens = st.radio("Sens", ["Achat", "Vente"], horizontal=True)
-        tickers = [t for t in df['Ticker'].unique() if t != "CASH"]
-        mode = st.radio("Actif", ["Existant", "Nouveau"], horizontal=True, label_visibility="collapsed")
-        if mode == "Existant":
-            tick = st.selectbox("Sélection", tickers)
-            nom = ""
-        else:
-            tick = st.text_input("Symbole (ex: AI.PA)").upper()
-            nom = st.text_input("Nom")
-        c_q, c_p = st.columns(2)
-        qty = c_q.number_input("Qté", min_value=0.00000001, step=0.01, format="%.8f")
-        price = c_p.number_input("Prix", min_value=0.01, step=0.01, format="%.2f")
-        if st.button("Confirmer Ordre", type="primary"):
-            ok, msg = op_trade(sens, tick, qty, price, nom)
-            if ok: st.success(msg); st.rerun()
-            else: st.error(msg)
-    st.markdown("---")
-    if st.button("💾 Sauvegarder Historique"):
-        succes, d = add_history_point(total_pf, val_pea, val_btc, total_pv, df)
-        if succes: st.success(f"Delta : {d:+.2f} €"); import time; time.sleep(1); st.rerun()
-        else: st.warning("Déjà fait")
+    st.header("🕹️ Opérations")
+    
+    with st.expander("💶 Mouvements Cash", expanded=True):
+        montant_flux = st.number_input("Montant (€)", step=100.0, help="Positif pour dépôt, Négatif pour retrait")
+        if st.button("Exécuter Flux", type="secondary"):
+            if montant_flux != 0:
+                operation_tresorerie(montant_flux)
+                st.success("Flux enregistré !")
+                st.rerun()
+            else:
+                st.warning("Montant nul.")
 
-# --- ONGLETS & VISUALISATION ---
-tab1, tab2, tab3, tab4 = st.tabs(["📋 Portefeuille", "📊 Graphiques", "🔮 Futur", "🔧 Admin"])
+    with st.expander("📈 Salle de Marché", expanded=True):
+        sens = st.radio("Sens", ["Achat", "Vente"], horizontal=True)
+        type_asset = st.radio("Actif", ["Existant", "Nouveau"], horizontal=True, label_visibility="collapsed")
+        
+        if type_asset == "Existant":
+            # On exclut le CASH de la liste de trading
+            tick = st.selectbox("Ticker", [t for t in df['Ticker'].unique() if t != 'CASH'])
+            nom = df.loc[df['Ticker']==tick, 'Nom'].values[0] if tick else ""
+        else:
+            tick = st.text_input("Symbole (ex: TTE.PA)").upper()
+            nom = st.text_input("Nom de l'actif")
+            
+        col_q, col_p = st.columns(2)
+        qty = col_q.number_input("Quantité", min_value=0.000001, step=1.0, format="%.6f")
+        price = col_p.number_input("Prix Unitaire", min_value=0.01, step=0.1)
+        
+        if st.button("Valider Ordre", type="primary"):
+            ok, msg = op_trade(sens, tick, qty, price, nom)
+            if ok: 
+                st.success(msg)
+                st.rerun()
+            else: 
+                st.error(msg)
+
+    st.markdown("---")
+    if st.button("💾 Sauvegarder Point Historique"):
+        succes, d = add_history_point(metrics_dict)
+        if succes: 
+            st.success(f"Sauvegardé. Variation: {d:+.2f}€")
+            st.rerun()
+        else: 
+            st.warning("Point déjà existant pour aujourd'hui.")
+
+# VUES DÉTAILLÉES
+tab1, tab2, tab3 = st.tabs(["📊 Analyse Visuelle", "📋 Détail Positions", "🔧 Données Brutes"])
 
 with tab1:
-    st.dataframe(df[['Nom','Quantité','PRU','Prix_Actuel','Valo','Var_Jour','Perf%']], hide_index=True, use_container_width=True,
-                 column_config={"Perf%": st.column_config.ProgressColumn(min_value=-30, max_value=30, format="%.2f %%"),
-                                "Var_Jour": st.column_config.NumberColumn(format="%+.2f €"),
-                                "Quantité": st.column_config.NumberColumn(format="%.8f"),
-                                "Valo": st.column_config.NumberColumn(format="%.2f €")})
+    g1, g2 = st.columns([2, 1])
+    
+    with g1:
+        st.subheader("Trajectoire Patrimoniale")
+        if not df_hist_static.empty and 'Total' in df_hist_static.columns:
+            # Graphique Area Chart Clean
+            fig = px.area(df_hist_static, x='Date', y='Total', color_discrete_sequence=['#3b82f6'])
+            fig.update_layout(
+                template="simple_white", 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=0,r=0,t=10,b=0),
+                hovermode="x unified"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("En attente de données historiques (Sauvegardez via la Sidebar)")
+
+    with g2:
+        st.subheader("Allocation Actuelle")
+        # Graphique Donut
+        alloc_df = df.groupby("Type")['Valo'].sum().reset_index()
+        fig_donut = px.pie(alloc_df, values='Valo', names='Type', hole=0.6, 
+                           color_discrete_sequence=px.colors.sequential.RdBu)
+        fig_donut.update_layout(
+            showlegend=False, 
+            margin=dict(l=0,r=0,t=0,b=0),
+            paper_bgcolor='rgba(0,0,0,0)',
+            annotations=[dict(text='Répartition', x=0.5, y=0.5, font_size=14, showarrow=False)]
+        )
+        st.plotly_chart(fig_donut, use_container_width=True)
 
 with tab2:
-    if not df_history_static.empty:
-        df_g = df_history_static.sort_values('Date').copy()
-        
-        col_g1, col_g2 = st.columns([2, 1])
-        
-        with col_g1:
-            st.caption("Trajectoire Patrimoniale")
-            fig_main = px.area(df_g, x='Date', y='Total')
-            fig_main.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            fig_main.update_traces(line_color='#3b82f6', fillcolor='rgba(59, 130, 246, 0.1)')
-            st.plotly_chart(fig_main, use_container_width=True)
-            
-        with col_g2:
-            st.caption("Volatilité Quotidienne")
-            if 'Delta' in df_g.columns:
-                colors = ['#10b981' if v >= 0 else '#ef4444' for v in df_g['Delta']]
-                fig_vol = go.Figure(go.Bar(x=df_g['Date'], y=df_g['Delta'], marker_color=colors))
-                fig_vol.update_layout(template="simple_white", margin=dict(l=0,r=0,t=0,b=0), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig_vol, use_container_width=True)
-                
-        st.caption("Benchmark S&P 500")
-        try:
-            x = df_g['Date']
-            col_idx = [c for c in df_g.columns if "Index100" in c]
-            if len(col_idx) >= 2:
-                fig_b = go.Figure()
-                fig_b.add_trace(go.Scatter(x=x, y=df_g[col_idx[0]], mode='lines', name='PF', line=dict(color='#0f172a', width=2)))
-                fig_b.add_trace(go.Scatter(x=x, y=df_g[col_idx[1]], mode='lines', name='S&P', line=dict(color='#94a3b8', width=2, dash='dot')))
-                fig_b.update_layout(template="simple_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0,r=0,t=0,b=0))
-                st.plotly_chart(fig_b, use_container_width=True)
-        except: pass
-    else: st.info("Pas d'historique.")
-    
-    st.subheader("Données journalière et mensuelle")
-    
-    # Cette ligne doit être alignée (4 espaces) comme st.subheader
-    df_market = get_market_monitor()
-    
-    if not df_market.empty:
-        st.dataframe(
-            df_market,
-            hide_index=True,
-            use_container_width=True,
-            column_config={
-                "Indice": st.column_config.TextColumn("Indice", width="medium"),
-                "Ticker": st.column_config.TextColumn("Ticker", width="small"),
-                "Prix actuel": st.column_config.NumberColumn("Prix actuel", format="%.2f"),
-                "Perf. du Jour": st.column_config.NumberColumn("Perf. du Jour", format="%.2f %%"),
-                "Perf 1 Mois": st.column_config.NumberColumn("Perf 1 Mois", format="%.2f %%")
-            }
-        )
-    
-    st.markdown("---")
-    
-with tab3:
-    c_in, c_out = st.columns([1,3])
-    with c_in:
-        add = st.number_input("Apport Mensuel", 500)
-        r = st.slider("Taux %", 2.0, 12.0, 8.0)
-        y = st.slider("Années", 5, 30, 15)
-    with c_out:
-        res = []
-        c = total_pf
-        for i in range(1, y+1):
-            c = c*(1+r/100)+(add*12)
-            res.append({"Année": datetime.now().year+i, "Capital": c})
-        fig_p = px.area(pd.DataFrame(res), x="Année", y="Capital")
-        fig_p.update_layout(template="simple_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        fig_p.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.1)')
-        st.plotly_chart(fig_p, use_container_width=True)
+    # Tableau stylisé
+    st.dataframe(
+        df[['Nom', 'Ticker', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_Jour_€']],
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Nom": st.column_config.TextColumn("Actif", width="medium"),
+            "Quantité": st.column_config.NumberColumn("Qté", format="%.4f"),
+            "PRU": st.column_config.NumberColumn("PRU", format="%.2f €"),
+            "Prix_Actuel": st.column_config.NumberColumn("Prix", format="%.2f €"),
+            "Valo": st.column_config.NumberColumn("Valorisation", format="%.2f €"),
+            "Perf_%": st.column_config.ProgressColumn("Perf %", format="%.2f %%", min_value=-20, max_value=20),
+            "Var_Jour_€": st.column_config.NumberColumn("Var. Jour", format="%+.2f €")
+        }
+    )
 
-with tab4:
-    st.warning("Admin Zone")
-    f_ch = st.radio("Fichier", ["Portefeuille", "Historique"], horizontal=True)
-    if f_ch == "Portefeuille":
-        ed = st.data_editor(df, num_rows="dynamic")
-        if st.button("Save PF"): ed.to_csv(FILE_PORTFOLIO, index=False, sep=';'); st.success("OK"); st.rerun()
-    else:
-        if os.path.exists(FILE_HISTORY):
-            with open(FILE_HISTORY, 'r') as f: raw = f.read()
-            h_ed = st.data_editor(pd.read_csv(io.StringIO(raw), sep=',', engine='python'), num_rows="dynamic")
-            if st.button("Save Hist"):
-                if pd.api.types.is_datetime64_any_dtype(h_ed['Date']): h_ed['Date'] = h_ed['Date'].dt.strftime('%d/%m/%Y')
-                h_ed.to_csv(FILE_HISTORY, index=False, sep=',', quotechar='"', quoting=1)
-                st.success("OK"); st.rerun()
+with tab3:
+    st.write("Édition manuelle (Attention)")
+    edited_df = st.data_editor(df, num_rows="dynamic")
+    if st.button("Forcer Sauvegarde CSV"):
+        edited_df.to_csv(FILE_PORTFOLIO, index=False, sep=';')
+        st.success("Fichier écrasé avec les données ci-dessus.")
