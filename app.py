@@ -3,7 +3,7 @@ import pandas as pd
 import yfinance as yf
 import plotly.express as px
 import plotly.graph_objects as go
-import numpy as np
+import matplotlib.pyplot as plt # Indispensable pour le styling pandas
 from datetime import datetime
 
 # --- 1. CONFIGURATION DU QUARTIER GÉNÉRAL ---
@@ -57,31 +57,33 @@ st.markdown("""
 
 # --- 3. MOTEUR FINANCIER (LOGIQUE & DATA) ---
 
-@st.cache_data(ttl=300)  # Cache de 5 minutes pour la rapidité
+@st.cache_data(ttl=300)
 def get_live_prices(tickers_list):
     """Récupère les prix en lot pour optimiser la performance."""
-    # Séparation Cash / Tickers
     valid_tickers = [t for t in tickers_list if t != "CASH"]
     
     if not valid_tickers:
         return {}
         
     try:
-        # Téléchargement groupé
-        data = yf.download(valid_tickers, period="1d", progress=False)['Close']
+        # Correction de l'API : auto_adjust=False pour éviter les warnings
+        data = yf.download(valid_tickers, period="1d", progress=False, auto_adjust=False)['Close']
         prices = {}
         
-        # Gestion du format de retour de yfinance (Series vs DataFrame)
         if len(valid_tickers) == 1:
-             prices[valid_tickers[0]] = data.iloc[-1]
+             # Si un seul ticker, yfinance renvoie une Series ou un DataFrame différent
+             val = data.iloc[-1]
+             prices[valid_tickers[0]] = float(val.iloc[0]) if isinstance(val, pd.Series) else float(val)
         else:
             for t in valid_tickers:
-                prices[t] = data[t].iloc[-1]
+                # Gestion sécurisée des valeurs
+                val = data[t].iloc[-1]
+                prices[t] = float(val)
         
         prices["CASH"] = 1.0
         return prices
     except Exception as e:
-        st.error(f"Erreur de connexion aux marchés : {e}")
+        st.warning(f"Connexion marchés limitée : {e}")
         return {t: 0.0 for t in tickers_list}
 
 def load_assets():
@@ -97,19 +99,22 @@ def load_assets():
             "Liquidités PEA"
         ],
         "Type": ["Action (ETF)", "Action (ETF)", "Action (Levier)", "Action (Levier)", "Crypto", "Cash"],
-        "Risque": ["Moyen", "Moyen", "Élevé", "Élevé", "Spéculatif", "Nul"],
-        "Quantité": [141, 71, 55, 176, 0.015, 510.84], # Légère augmentation BTC pour l'exemple
+        "Quantité": [141, 71, 55, 176, 0.015, 510.84],
         "PRU": [24.41, 4.68, 71.73, 19.71, 65000.00, 1.00]
     }
     return pd.DataFrame(data)
 
 def calculate_portfolio(df):
     prices = get_live_prices(df['Ticker'].tolist())
-    df['Prix_Actuel'] = df['Ticker'].map(prices)
+    # Fallback si prix non trouvé (évite les erreurs de calcul)
+    df['Prix_Actuel'] = df['Ticker'].apply(lambda x: prices.get(x, 0.0))
+    
     df['Valo_Actuelle'] = df['Quantité'] * df['Prix_Actuel']
     df['Investissement'] = df['Quantité'] * df['PRU']
     df['Plus_Value'] = df['Valo_Actuelle'] - df['Investissement']
-    df['Perf_%'] = ((df['Prix_Actuel'] - df['PRU']) / df['PRU']) * 100
+    
+    # Éviter la division par zéro
+    df['Perf_%'] = df.apply(lambda row: ((row['Prix_Actuel'] - row['PRU']) / row['PRU']) * 100 if row['PRU'] > 0 else 0, axis=1)
     return df
 
 # --- 4. BARRE LATÉRALE : CENTRE DE CONTRÔLE ---
@@ -118,17 +123,24 @@ with st.sidebar:
     st.caption(f"Bienvenue, Monsieur.")
     st.markdown("---")
     
-    # Indicateurs de marché en temps réel
+    # Indicateurs Macro
     st.markdown("#### 🌍 Tendance Marchés")
-    market_data = get_live_prices(["^FCHI", "^GSPC", "BTC-EUR"]) # CAC40, S&P500, BTC
+    # Utilisation de tickers robustes
+    market_tickers = ["^FCHI", "^GSPC", "BTC-EUR"]
+    market_prices = get_live_prices(market_tickers)
     
     col_s1, col_s2 = st.columns(2)
-    col_s1.metric("CAC 40", f"{market_data.get('^FCHI', 0):.0f}", delta=None)
-    col_s2.metric("S&P 500", f"{market_data.get('^GSPC', 0):.0f}", delta=None)
-    st.metric("Bitcoin", f"{market_data.get('BTC-EUR', 0):,.0f} €", delta_color="normal")
+    # Gestion sécurisée des affichages si données manquantes
+    cac = market_prices.get('^FCHI', 0)
+    sp500 = market_prices.get('^GSPC', 0)
+    btc = market_prices.get('BTC-EUR', 0)
+    
+    col_s1.metric("CAC 40", f"{cac:.0f}" if cac else "N/A")
+    col_s2.metric("S&P 500", f"{sp500:.0f}" if sp500 else "N/A")
+    st.metric("Bitcoin", f"{btc:,.0f} €" if btc else "N/A")
     
     st.markdown("---")
-    st.info("💡 **Note de synthèse** : L'inflation en France est stable. Pensez à renforcer vos positions sur le repli du levier USA.")
+    st.info("💡 **Note** : Les données sont actualisées en temps réel.")
 
 # --- 5. CORPS PRINCIPAL ---
 
@@ -139,11 +151,11 @@ st.markdown(f"*Dernière valorisation : {datetime.now().strftime('%d %B %Y à %H
 df_raw = load_assets()
 df = calculate_portfolio(df_raw)
 
-# KPI GLOBAUX (Ligne du haut)
+# KPI GLOBAUX
 total_assets = df['Valo_Actuelle'].sum()
 total_invested = df['Investissement'].sum()
 total_pnl = total_assets - total_invested
-global_perf = (total_pnl / total_invested) * 100
+global_perf = (total_pnl / total_invested) * 100 if total_invested > 0 else 0
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("VALORISATION NETTE", f"{total_assets:,.2f} €", "Net Worth")
@@ -162,25 +174,27 @@ with tab_pf:
     
     with col_left:
         st.subheader("Inventaire des Actifs")
-        # Configuration du tableau pour qu'il soit très lisible
-        st.dataframe(
-            df[['Nom', 'Type', 'PRU', 'Prix_Actuel', 'Valo_Actuelle', 'Plus_Value', 'Perf_%']].style
-            .format({
-                'PRU': "{:.2f} €",
-                'Prix_Actuel': "{:.2f} €",
-                'Valo_Actuelle': "{:,.2f} €",
-                'Plus_Value': "{:+,.2f} €",
-                'Perf_%': "{:+.2f} %"
-            })
-            .background_gradient(subset=['Perf_%'], cmap='RdYlGn', vmin=-10, vmax=30)
-            .bar(subset=['Valo_Actuelle'], color='#d4af37'),
-            use_container_width=True,
-            height=400
-        )
+        
+        # Application du style avec gestion d'erreur sécurisée
+        try:
+            styled_df = (df[['Nom', 'Type', 'PRU', 'Prix_Actuel', 'Valo_Actuelle', 'Plus_Value', 'Perf_%']].style
+                .format({
+                    'PRU': "{:.2f} €",
+                    'Prix_Actuel': "{:.2f} €",
+                    'Valo_Actuelle': "{:,.2f} €",
+                    'Plus_Value': "{:+,.2f} €",
+                    'Perf_%': "{:+.2f} %"
+                })
+                .background_gradient(subset=['Perf_%'], cmap='RdYlGn', vmin=-10, vmax=30)
+                .bar(subset=['Valo_Actuelle'], color='#d4af37')
+            )
+            st.dataframe(styled_df, use_container_width=True, height=400)
+        except ImportError:
+            st.error("Veuillez installer 'matplotlib' pour voir les couleurs (pip install matplotlib).")
+            st.dataframe(df, use_container_width=True)
 
     with col_right:
         st.subheader("Répartition par Poids")
-        # Treemap : plus professionnel que le "camembert" pour voir les masses
         fig_tree = px.treemap(
             df, 
             path=['Type', 'Nom'], 
@@ -195,11 +209,10 @@ with tab_pf:
 # --- ONGLET 2 : ANALYSE ---
 with tab_alloc:
     st.subheader("Exposition Sectorielle et Risque")
-    
     col_a1, col_a2 = st.columns(2)
     
     with col_a1:
-        # Waterfall Chart pour visualiser la construction de la valeur
+        # Waterfall
         fig_water = go.Figure(go.Waterfall(
             name = "20", orientation = "v",
             measure = ["relative"] * len(df),
@@ -219,9 +232,8 @@ with tab_alloc:
         st.plotly_chart(fig_water, use_container_width=True)
         
     with col_a2:
-        # Graphique Radar pour le risque (Simulation)
+        # Radar (Simulation)
         categories = ['Diversification', 'Volatilité', 'Liquidité', 'Rendement', 'Protection Inflation']
-        # Note subjective basée sur votre profil
         values = [3, 4, 5, 4, 3] 
         
         fig_radar = go.Figure(data=go.Scatterpolar(
@@ -241,7 +253,6 @@ with tab_alloc:
 # --- ONGLET 3 : LIBERTÉ FINANCIÈRE ---
 with tab_sim:
     st.subheader("Planification de la Rente")
-    st.markdown("Projection basée sur l'accumulation de capital et la règle des 4% (Trinity Study).")
     
     col_sim1, col_sim2 = st.columns([1, 2])
     
@@ -253,30 +264,22 @@ with tab_sim:
             annees = st.slider("Horizon (Années)", 5, 30, 15)
             inflation = st.slider("Inflation estimée (%)", 0.0, 5.0, 2.0)
             
-            st.markdown("---")
-            st.caption("Le rendement réel sera calculé net d'inflation.")
-
     with col_sim2:
-        # Calculs vectorisés
         rendement_reel = (1 + rendement/100) / (1 + inflation/100) - 1
         dates = range(datetime.now().year, datetime.now().year + annees + 1)
         capital_proj = [total_assets]
         
         for _ in range(annees):
-            # Capital N-1 * Rendement + Apport Annuel
             new_cap = capital_proj[-1] * (1 + rendement_reel) + (apport_mensuel * 12)
             capital_proj.append(new_cap)
             
         df_proj = pd.DataFrame({"Année": dates, "Capital": capital_proj})
         rente_mensuelle = (capital_proj[-1] * 0.04) / 12
         
-        # Graphique de projection
         fig_line = px.area(df_proj, x="Année", y="Capital", title="Évolution de la Fortune Nette (Ajustée Inflation)")
         fig_line.update_traces(line_color='#d4af37', fill_color='rgba(212, 175, 55, 0.2)')
         fig_line.add_hline(y=1000000, line_dash="dot", line_color="white", annotation_text="Target 1M€")
         fig_line.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font={'color': 'white'})
         st.plotly_chart(fig_line, use_container_width=True)
         
-        # Verdict
-        st.success(f"🎯 **Résultat :** Dans {annees} ans, votre patrimoine estimé sera de **{capital_proj[-1]:,.0f} €** (pouvoir d'achat d'aujourd'hui).")
-        st.markdown(f"Cela générerait une **rente passive 'infinie' de {rente_mensuelle:,.0f} € / mois** sans toucher au capital.")
+        st.success(f"🎯 **Résultat :** Capital estimé de **{capital_proj[-1]:,.0f} €**. Rente mensuelle possible : **{rente_mensuelle:,.0f} €**.")
