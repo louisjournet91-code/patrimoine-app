@@ -10,13 +10,13 @@ import io
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Liquid Mesh Estate", layout="wide", page_icon="💎")
 
-# --- 2. DESIGN SYSTEM "LIQUID MESH" (L'entre-deux) ---
+# --- 2. DESIGN SYSTEM "LIQUID MESH" ---
 st.markdown("""
 <style>
     /* IMPORT POLICE */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap');
 
-    /* FOND D'ÉCRAN (Celui de la première version : Mesh Gradient Holographique) */
+    /* FOND D'ÉCRAN MESH GRADIENT */
     .stApp {
         background-color: #f8fafc;
         background-image: 
@@ -29,34 +29,25 @@ st.markdown("""
         color: #1e293b;
     }
 
-    /* LE STYLE LIQUID GLASS (Celui de la deuxième version pour les cartes) */
+    /* LE STYLE LIQUID GLASS */
     div[data-testid="stMetric"], 
     div[data-testid="stDataFrame"], 
     div.stPlotlyChart, 
     div.stForm,
     div.stExpander {
-        /* Fond semi-transparent blanc, un peu plus opaque pour le contraste sur le mesh */
         background-color: rgba(255, 255, 255, 0.45) !important; 
-        
-        /* Flou d'arrière-plan */
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
-        
-        /* Arrondis */
         border-radius: 24px;
-        
-        /* L'effet "Liquide" (Ombres internes + Bordure nette) */
         box-shadow: 
-            0 8px 32px 0 rgba(31, 38, 135, 0.07), /* Ombre portée douce */
-            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.7), /* Reflet haut */
-            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.4); /* Reflet bas */
-            
-        border: 1px solid rgba(255, 255, 255, 0.8); /* Bordure blanche nette */
+            0 8px 32px 0 rgba(31, 38, 135, 0.07), 
+            inset 2px 2px 1px 0 rgba(255, 255, 255, 0.7), 
+            inset -1px -1px 1px 1px rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.8);
         padding: 20px !important;
         transition: all 0.3s ease;
     }
 
-    /* Effet de survol */
     div[data-testid="stMetric"]:hover, div.stPlotlyChart:hover {
         transform: translateY(-5px);
         background-color: rgba(255, 255, 255, 0.55) !important;
@@ -67,19 +58,16 @@ st.markdown("""
         border: 1px solid rgba(255, 255, 255, 1);
     }
 
-    /* TYPOGRAPHIE */
     h1, h2, h3, h4 {
         color: #0f172a;
         font-weight: 700;
         letter-spacing: -0.02em;
-        text-shadow: 0 1px 2px rgba(255,255,255,0.5); /* Petit halo pour détacher du fond */
+        text-shadow: 0 1px 2px rgba(255,255,255,0.5);
     }
     
-    /* CHIFFRES DES MÉTRIQUES */
     div[data-testid="stMetricValue"] {
         font-size: 30px;
         font-weight: 700;
-        /* Dégradé subtil sur le texte pour l'effet premium */
         background: -webkit-linear-gradient(45deg, #0f172a, #334155);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -90,7 +78,6 @@ st.markdown("""
         font-size: 14px;
     }
 
-    /* SIDEBAR */
     section[data-testid="stSidebar"] {
         background-color: rgba(255, 255, 255, 0.35);
         backdrop-filter: blur(25px);
@@ -98,7 +85,6 @@ st.markdown("""
         box-shadow: 5px 0 25px rgba(0,0,0,0.03);
     }
 
-    /* ONGLETS */
     .stTabs [data-baseweb="tab-list"] {
         gap: 12px;
         background-color: rgba(255,255,255,0.3);
@@ -122,7 +108,6 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     }
     
-    /* BOUTONS */
     div.stButton > button {
         border-radius: 14px;
         background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
@@ -160,7 +145,7 @@ INITIAL_PORTFOLIO = {
     "PRU": [24.41, 4.68, 71.73, 19.71, 90165.46, 1.00]
 }
 
-# --- 4. FONCTIONS (Logique inchangée) ---
+# --- 4. FONCTIONS ---
 
 def safe_float(x):
     if pd.isna(x) or x == "": return 0.0
@@ -358,14 +343,15 @@ st.markdown("#### 🔭 Vue Satellite")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Portefeuille Net", f"{total_pf:,.2f} €")
 c2.metric("Montant Initial", f"{MONTANT_INITIAL:,.2f} €")
-c3.metric("Trésorerie", f"{cash_dispo:,.2f} €", f"{(cash_dispo/total_pf)*100:.1f}%")
+# MODIFICATION ICI : Suppression du delta pourcentage pour la Trésorerie
+c3.metric("Trésorerie", f"{cash_dispo:,.2f} €")
 c4.metric("Variation Jour", f"{volat_jour_live:+,.2f} €")
 
 st.write("")
 
 st.markdown("#### 🚀 Performance Actifs")
 c5, c6, c7, c8 = st.columns(4)
-c5.metric("Valorisation Investi", f"{valo_investi:,.2f} €")
+c5.metric("Investi", f"{valo_investi:,.2f} €")
 c6.metric("Coût (PRU)", f"{cout_investi:,.2f} €")
 c7.metric("Perf. Actifs", f"{perf_actif_eur:+,.2f} €", f"{perf_actif_pct:+.2f} %")
 c8.metric("Perf. Totale", f"{perf_totale_eur:+,.2f} €", f"{perf_totale_pct:+.2f} %")
