@@ -203,6 +203,19 @@ else:
     delta_day = df_pf['Var_24h_€'].sum()
     delta_pct = 0.0
 
+# --- CALCUL CAGR (Correction) ---
+# Paramètres fixes de votre début d'aventure
+CAPITAL_INITIAL = 15450.00  
+DATE_DEBUT = datetime(2022, 1, 1) 
+
+# Calcul mathématique
+annees_detention = (datetime.now() - DATE_DEBUT).days / 365.25
+if annees_detention > 0 and CAPITAL_INITIAL > 0:
+    # Formule : (Valeur Finale / Valeur Initiale)^(1/Années) - 1
+    cagr_val = ((TOTAL_ACTUEL / CAPITAL_INITIAL) ** (1 / annees_detention) - 1) * 100
+else:
+    cagr_val = 0.0
+
 # --- 5. INTERFACE ---
 
 # Header
@@ -228,7 +241,7 @@ st.markdown(f"""
 col1, col2, col3 = st.columns(3)
 col1.metric("Cash Disponible", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc.")
 col2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%")
-col3.metric("CAGR Est.", "N/A", "Depuis 2022") # À connecter si date début dispo
+col3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 
 st.markdown("---")
 
