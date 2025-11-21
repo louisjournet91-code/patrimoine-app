@@ -101,35 +101,37 @@ def save_portfolio():
 
 def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
     """
-    Calcul du Delta pur : Valeur Actuelle - Valeur Dernière Ligne CSV
+    Sauvegarde avec Calcul du Delta pur : Valeur Actuelle - Valeur Veille (CSV)
+    Sécurisée contre les virgules françaises.
     """
-    # 1. Chargement de l'historique (La mémoire)
+    # 1. Chargement de l'historique
     if os.path.exists(FILE_HISTORY):
         try: 
+            # On lit sans forcer le type ici, le nettoyage se fera après
             df_hist = pd.read_csv(FILE_HISTORY, sep=None, engine='python')
-            # Nettoyage des colonnes clés
-            for col in ['Total', 'PEA', 'BTC', 'Plus-value']:
-                if col in df_hist.columns:
-                    df_hist[col] = df_hist[col].apply(safe_float)
         except: 
             df_hist = pd.DataFrame(columns=HIST_COLS)
     else:
         df_hist = pd.DataFrame(columns=HIST_COLS)
 
-    # 2. Récupération de la valeur de LA VEILLE (Dernière ligne du CSV)
+    # 2. Récupération de la valeur de LA VEILLE (J-1)
+    # C'est ici que nous utilisons safe_float pour éviter le crash "ValueError"
     prev_total = 0.0
     prev_ese = 0.0
     prev_pf_idx = 100.0
     prev_ese_idx = 100.0
+    prev_pv = 0.0
     
     if not df_hist.empty:
         last_row = df_hist.iloc[-1]
-        prev_total = float(last_row.get('Total', 0)) # C'est la valeur d'hier soir
-        prev_ese = float(last_row.get('ESE', 0))
-        prev_pf_idx = float(last_row.get('PF_Index100', 100))
-        prev_ese_idx = float(last_row.get('ESE_Index100', 100))
+        # CORRECTION : Utilisation de safe_float au lieu de float
+        prev_total = safe_float(last_row.get('Total', 0))
+        prev_ese = safe_float(last_row.get('ESE', 0))
+        prev_pf_idx = safe_float(last_row.get('PF_Index100', 100))
+        prev_ese_idx = safe_float(last_row.get('ESE_Index100', 100))
+        prev_pv = safe_float(last_row.get('Plus-value', 0))
     else:
-        prev_total = total # Si fichier vide, pas de delta
+        prev_total = total # Si fichier vide, on initialise avec la valeur actuelle
 
     # 3. Données Actuelles
     try:
@@ -139,17 +141,21 @@ def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
     
     flux = 0.0 
 
-    # 4. LE CALCUL QUE VOUS VOULEZ (Delta = Total - Veille)
+    # 4. LE CALCUL (Delta = Total - Veille)
     delta = total - prev_total 
     
-    # La PV du jour est techniquement ce delta (ajusté des flux si il y en avait)
+    # La PV du jour est ce delta moins les flux éventuels
     pv_jour = delta - flux
 
     # TWR & Indices
     denom = prev_total + flux
     pf_return = (total - prev_total - flux) / denom if denom != 0 else 0.0
     
-    ese_return = (ese_price - prev_ese) / prev_ese if (prev_ese != 0 and ese_price != 0) else 0.0
+    # Calcul ESE Return
+    if prev_ese != 0 and ese_price != 0:
+        ese_return = (ese_price - prev_ese) / prev_ese
+    else:
+        ese_return = 0.0
 
     pf_index100 = prev_pf_idx * (1 + pf_return)
     ese_index100 = prev_ese_idx * (1 + ese_return)
@@ -157,14 +163,19 @@ def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
     # 5. Sauvegarde
     today = datetime.now().strftime("%d/%m/%Y")
     
-    if today not in df_hist['Date'].astype(str).values:
+    # Conversion Date CSV pour vérifier doublon
+    dates_existantes = []
+    if not df_hist.empty and 'Date' in df_hist.columns:
+        dates_existantes = df_hist['Date'].astype(str).values
+
+    if today not in dates_existantes:
         new_data = {
             "Date": today,
             "Total": round(total, 2),
             "PEA": round(val_pea, 2),
             "BTC": round(val_btc, 2),
             "Plus-value": round(pv_totale, 2),
-            "Delta": round(delta, 2),        # C'est bien (Total Live - Total Hier)
+            "Delta": round(delta, 2),        
             "PV_du_Jour": round(pv_jour, 2),
             "ESE": round(ese_price, 2),
             "Flux_(€)": 0,
@@ -176,6 +187,8 @@ def add_history_point(total, val_pea, val_btc, pv_totale, df_pf):
         
         new_row = pd.DataFrame([new_data])
         df_final = pd.concat([df_hist, new_row], ignore_index=True)
+        
+        # Sauvegarde forcée avec point-virgule pour Excel France
         df_final.to_csv(FILE_HISTORY, index=False, sep=';')
         return True, delta
     
