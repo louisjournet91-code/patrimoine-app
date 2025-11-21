@@ -14,7 +14,7 @@ st.set_page_config(page_title="Tableau de Bord", layout="wide", page_icon="💎"
 with st.sidebar:
     st.header("⚙️ Préférences")
     dark_mode = st.toggle("🌙 Mode Sombre", value=True)
-    st.caption("Tableau de Bord V.1.2")
+    st.caption("Tableau de Bord V.1.3")
 
 # Définition des palettes selon le mode
 if dark_mode:
@@ -245,7 +245,7 @@ else:
 st.markdown("## 🏛️ Tableau de Bord")
 st.caption(f"Valorisation en temps réel • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
-# Hero Section Modifiée
+# Hero Section
 st.markdown(f"""
 <div style="background: linear-gradient(135deg, {bg_color} 0%, {card_bg} 100%); 
             padding: 30px; border-radius: 24px; border: 1px solid {border_color}; 
@@ -261,7 +261,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Cash Disponible", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc.")
+col1.metric("Liquidité", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc.")
 col2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%")
 col3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 
