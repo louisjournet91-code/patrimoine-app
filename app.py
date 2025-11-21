@@ -374,11 +374,38 @@ with c3:
     st.markdown("##### ⏳ Temps & Objectifs")
     st.metric("CAGR (Annuel)", f"{cagr:.2f} %")
     
-    # Jauge de progression vers 100k (Exemple)
-    target = 100000
-    prog = min(total_pf / target, 1.0)
-    st.write(f"Objectif 100k€ : **{int(prog*100)}%**")
-    st.progress(prog)
+# --- BENTO ROW 3 : TEMPS & OBJECTIF ---
+st.markdown("### ⏳ Cap & Objectifs")
+
+# On crée 3 colonnes égales pour que la jauge ait la même taille que les autres boîtes
+k9, k10, k11 = st.columns(3)
+
+k9.metric("Rendement Annualisé", f"{rendement_annuel:.2f} %")
+k10.metric("CAGR", f"{cagr:.2f} %")
+
+with k11:
+    # Configuration de la jauge
+    TARGET_GOAL = 100000.0 
+    percent_goal = min((total_pf / TARGET_GOAL) * 100, 100.0)
+    
+    # Injection HTML pour imiter parfaitement une carte native (st.metric)
+    # Le style 'margin-top: 0' et 'min-height' assure l'alignement avec les voisins
+    st.markdown(f"""
+    <div class="liquid-card" style="margin-top: 0px; height: 100%; min-height: 140px; display: flex; flex-direction: column; justify-content: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <span style="color: #64748b; font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Objectif 100k</span>
+            <span style="color: #10b981; font-weight: 700; font-size: 14px;">{int(percent_goal)}%</span>
+        </div>
+        
+        <div style="font-size: 30px; font-weight: 700; background: linear-gradient(135deg, #0f172a 0%, #334155 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            {total_pf:,.0f} €
+        </div>
+        
+        <div class="progress-container" style="margin-top: 10px;">
+            <div class="progress-bar-liquid" style="width: {percent_goal}%;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 
