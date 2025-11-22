@@ -316,14 +316,19 @@ fig_alloc.update_layout(
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)',
     showlegend=True,
+    # 1. On ancre la légende
     legend=dict(
-        orientation="h",      # Horizontal
-        yanchor="top", 
-        y=-0.1,               # En dessous du graph
-        xanchor="center", 
-        x=0.5                 # Centré
-    ),)
-    margin=dict(t=30, b=50, l=20, r=20) # Marge en bas pour le texte
+        orientation="v", 
+        y=0.5, 
+        x=1.02, # Juste un tout petit peu décalé du cercle
+        xanchor="left", 
+        yanchor="middle"
+    ),
+    # 2. LA CLÉ EST ICI : On force une marge à droite (r=160)
+    margin=dict(t=30, b=30, l=20, r=200) 
+)
+
+st.plotly_chart(fig_alloc, use_container_width=True)
 
 # ... (Reste du code inchangé)
 
