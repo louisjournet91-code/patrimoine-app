@@ -48,27 +48,44 @@ def load_data():
 
 @st.cache_data(ttl=300)
 def get_live_prices(tickers):
-    """Récupère les prix actuels et de la veille."""
+    """Récupère les prix actuels avec une stratégie robuste."""
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
     real_ticks = [t for t in tickers if t != "CASH" and isinstance(t, str)]
-    if not real_ticks: return prices
     
     for t in real_ticks:
         try:
-            hist = yf.Ticker(t).history(period="5d")
+            # STRATÉGIE 1 : HISTORY (Standard)
+            # On demande 1 mois (1mo) au lieu de 5 jours (5d) pour éviter les trous de cotation
+            tick_obj = yf.Ticker(t)
+            hist = tick_obj.history(period="1mo")
+            
             if not hist.empty:
                 cur = float(hist['Close'].iloc[-1])
                 prev = float(hist['Close'].iloc[-2]) if len(hist) > 1 else cur
                 prices[t] = {"cur": cur, "prev": prev}
+            
             else:
-                data = yf.download(t, period="1d", progress=False)
+                # STRATÉGIE 2 : DOWNLOAD (Secours)
+                # Parfois nécessaire pour certains tickers spécifiques
+                data = yf.download(t, period="5d", progress=False)
+                
                 if not data.empty:
-                    val = data['Close'].iloc[-1] if 'Close' in data.columns else data.iloc[-1]
-                    prices[t] = {"cur": float(val), "prev": float(val)}
+                    # Gestion des formats de retour complexes de yfinance (MultiIndex)
+                    vals = data['Close']
+                    if isinstance(vals, pd.DataFrame): 
+                        vals = vals.iloc[:, 0] # On prend la première colonne
+                    
+                    cur = float(vals.iloc[-1])
+                    prev = float(vals.iloc[-2]) if len(vals) > 1 else cur
+                    prices[t] = {"cur": cur, "prev": prev}
                 else:
+                    # ECHEC TOTAL : On met 0.0 (le PRU prendra le relais dans app.py pour éviter le crash)
                     prices[t] = {"cur": 0.0, "prev": 0.0}
-        except:
+
+        except Exception:
+            # En cas d'erreur réseau ou autre
             prices[t] = {"cur": 0.0, "prev": 0.0}
+            
     return prices
 
 @st.cache_data(ttl=3600)
