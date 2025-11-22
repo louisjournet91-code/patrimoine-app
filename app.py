@@ -113,29 +113,52 @@ def safe_float(x):
     except: return 0.0
 
 def load_data():
+    # Initialisation par défaut
+    df = pd.DataFrame(INITIAL_PORTFOLIO)
+    
     if os.path.exists(FILE_PORTFOLIO):
         try:
-            # Lecture flexible (; ou ,)
-            df = pd.read_csv(FILE_PORTFOLIO, sep=None, engine='python', dtype=str)
-        except: df = pd.DataFrame(INITIAL_PORTFOLIO)
-    else:
-        df = pd.DataFrame(INITIAL_PORTFOLIO)
+            # Tentative de lecture robuste
+            temp_df = pd.read_csv(FILE_PORTFOLIO, sep=None, engine='python', dtype=str)
+            
+            # NETTOYAGE CRITIQUE : On supprime les espaces potentiels dans les noms de colonnes
+            # " Ticker" ou "Ticker " deviendra "Ticker"
+            temp_df.columns = temp_df.columns.str.strip()
+            
+            # VÉRIFICATION D'INTÉGRITÉ
+            # Si la colonne 'Ticker' n'existe pas, c'est que le CSV est mal lu (mauvais séparateur)
+            if 'Ticker' in temp_df.columns:
+                df = temp_df
+            else:
+                # Fallback silencieux ou log en console si besoin
+                print("Erreur structure CSV : Colonne 'Ticker' introuvable. Chargement défaut.")
+                
+        except Exception as e:
+            print(f"Erreur lecture CSV : {e}")
+            # En cas de crash total du fichier, on garde le df initialisé au début
+            pass
 
+    # Nettoyage des données numériques
     for c in ['Quantité', 'PRU']:
-        if c in df.columns: df[c] = df[c].apply(safe_float)
+        if c in df.columns: 
+            df[c] = df[c].apply(safe_float)
 
+    # Gestion de l'historique (inchangée mais sécurisée)
     hist_cols = ["Date", "Total", "Delta", "PF_Index100", "ESE_Index100"]
+    df_h = pd.DataFrame(columns=hist_cols)
+    
     if os.path.exists(FILE_HISTORY):
         try:
-            df_h = pd.read_csv(FILE_HISTORY, sep=';', on_bad_lines='skip', engine='python')
-            if df_h.shape[1] < 3: df_h = pd.read_csv(FILE_HISTORY, sep=',', on_bad_lines='skip')
-            for c in df_h.columns:
-                if c != "Date": df_h[c] = df_h[c].apply(safe_float)
-            df_h['Date'] = pd.to_datetime(df_h['Date'], dayfirst=True, errors='coerce')
-            df_h = df_h.dropna(subset=['Date']).sort_values('Date')
-        except: df_h = pd.DataFrame(columns=hist_cols)
-    else:
-        df_h = pd.DataFrame(columns=hist_cols)
+            temp_h = pd.read_csv(FILE_HISTORY, sep=None, engine='python', on_bad_lines='skip')
+            
+            # Même logique de sécurité si nécessaire, mais ici on assure juste le format
+            if 'Date' in temp_h.columns:
+                for c in temp_h.columns:
+                    if c != "Date": temp_h[c] = temp_h[c].apply(safe_float)
+                temp_h['Date'] = pd.to_datetime(temp_h['Date'], dayfirst=True, errors='coerce')
+                df_h = temp_h.dropna(subset=['Date']).sort_values('Date')
+        except: 
+            pass
 
     return df, df_h
 
