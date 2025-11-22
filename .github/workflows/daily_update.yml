@@ -22,15 +22,19 @@ jobs:
           python-version: '3.9'
 
       - name: Installer les outils
-        run: pip install pandas yfinance
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas yfinance lxml
 
+      # --- CORRECTION MAJEURE ICI ---
+      # On lance robot.py (le nouveau script robuste) au lieu de scheduler.py
       - name: Lancer le Robot
-        run: python scheduler.py
+        run: python robot.py
 
       - name: Sauvegarder le CSV sur GitHub
         run: |
           git config --global user.name 'Robot Patrimoine'
           git config --global user.email 'robot@patrimoine.com'
           git add historique.csv
-          git commit -m "Mise à jour auto minuit" || echo "Rien à changer"
-          git push
+          # On ne commit que si le fichier a changé pour éviter les erreurs vides
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Mise à jour auto minuit" && git push)
