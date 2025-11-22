@@ -301,7 +301,7 @@ if not df_hist.empty:
     fig_heat = px.imshow(matrix, text_auto='.2f', aspect="auto", color_continuous_scale="RdBu", color_continuous_midpoint=0)
     fig_heat.update_layout(
         template="plotly_dark", # DARK FORCÉ
-        height=350,
+        height=150,
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
         xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=0, t=30, b=0)
     )
