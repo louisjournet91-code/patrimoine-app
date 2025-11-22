@@ -252,6 +252,22 @@ c1.metric("Liquidité", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*1
 c2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%" if (TOTAL_ACTUEL-PV_TOTALE)!=0 else "0%")
 c3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 
+# Calcul Volatilité (Annualisée)
+# On reprend le nettoyage des pourcentages
+def clean_pct_metric(x):
+    try: return float(str(x).replace('%', '').replace(',', '.')) / 100
+    except: return 0.0
+
+if not df_hist.empty:
+    daily_rets = df_hist['PF_Return_TWR'].apply(clean_pct_metric)
+    volatility = daily_rets.std() * (252 ** 0.5) * 100 # Annualisation (252 jours de bourse)
+else:
+    volatility = 0.0
+
+# ... (Vos metrics existantes) ...
+# Ajoutez une 4ème colonne ou remplacez-en une :
+c4.metric("Volatilité", f"{volatility:.2f} %", "Risque Annualisé")
+
 # --- GRAPHIQUES ---
 st.markdown("---")
 st.markdown("<div class='section-header'>📊 Analyse & Marché</div>", unsafe_allow_html=True)
