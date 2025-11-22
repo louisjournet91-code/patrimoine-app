@@ -29,7 +29,7 @@ st.markdown(f"""
     /* --- MODIFICATION ICI : FOND DÉGRADÉ --- */
     .stApp {{ 
         /* Dégradé "Midnight Executive" : Noir > Bleu Nuit > Indigo */
-        background: linear-gradient(145deg, #008528 0%, #0f172a 50%, #1e1b4b 100%);
+        background: linear-gradient(145deg, #003811 0%, #0f172a 50%, #1e1b4b 100%);
         background-attachment: fixed; /* Le fond reste fixe lors du scroll */
         color: {TEXT_COLOR}; 
         font-family: 'Outfit', sans-serif; 
