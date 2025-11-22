@@ -1,7 +1,7 @@
-Ticker,Nom,Type,Quantité,PRU
-ESE.PA,BNP S&P 500,ETF Action,141.0,24.4058
-DCAM.PA,Amundi World,ETF Action,716.0,4.6779
-PUST.PA,Lyxor Nasdaq,ETF Tech,55.0,71.7305
-CL2.PA,Amundi USA x2,ETF Levier,176.0,19.707100
-BTC-EUR,Bitcoin,Crypto,0.0142413,90165.46
+  Ticker,Nom,Type,Quantité,PRU
+ESE.PA,BNP S&P 500,ETF Action,141.0,24.41
+DCAM.PA,Amundi World,ETF Action,716.0,4.68
+PUST.PA,Lyxor Nasdaq,ETF Tech,55.0,71.73
+CL2.PA,Amundi USA x2,ETF Levier,176.0,19.71
+BTC-EUR,Bitcoin,Crypto,0.0142,90165.46
 CASH,Liquidités,Cash,510.84,1.0

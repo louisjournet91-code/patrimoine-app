@@ -1,4 +1,9 @@
-Date,Total,PEA,BTC,Plus-value,Delta,PV du Jour,ESE,Flux (€),PF_Return_TWR,ESE_Return,PF_Index100,ESE_Index100,PF_Index100,ESE_Index100
+import pandas as pd
+import io
+import os
+
+# --- VOS DONNÉES COMPLÈTES (Février à Novembre 2025) ---
+RAW_DATA = """Date,Total,PEA,BTC,Plus-value,Delta,PV du Jour,ESE,Flux (€),PF_Return_TWR,ESE_Return,PF_Index100,ESE_Index100,PF_Index100.1,ESE_Index100.1
 17/02/2025,11088,9753,1164,1551,0,0,"29,33",0,"0,05%","-0,03%",100,100,0,0
 18/02/2025,11093,9757,1166,1551,0,,"29,32",0,"0,52%","0,68%","100,05","99,97","0,05","-0,03"
 19/02/2025,11151,9802,1178,1551,0,,"29,52",0,"-0,88%","-1,15%","100,57","100,65","0,57","0,65"
@@ -276,3 +281,22 @@ Date,Total,PEA,BTC,Plus-value,Delta,PV du Jour,ESE,Flux (€),PF_Return_TWR,ESE_
 18/11/2025,18126,16739,1076,2926,-270,,"28,87",0,"0,30%","0,35%","98,41","98,43","-1,59","-1,57"
 19/11/2025,18181,16821,1050,2981,55,,"28,97",0,"0,75%","0,79%","98,71","98,77","-1,29","-1,23"
 20/11/2025,18317,16982,1024,3117,136,,"29,2",0,,,"99,44","99,56","-0,56","-0,44"
+"""
+
+FILE_HISTORY = 'historique.csv'
+
+print(f"--- 🏛️ RESTAURATION DES ARCHIVES (Version Complète) ---")
+
+try:
+    # Lecture des données brutes avec gestion automatique des guillemets (quotechar='"')
+    # Les données fournies utilisent la virgule comme séparateur
+    df = pd.read_csv(io.StringIO(RAW_DATA), sep=',')
+    
+    # Sauvegarde au format attendu par le dashboard (point-virgule)
+    df.to_csv(FILE_HISTORY, sep=';', index=False, encoding='utf-8-sig')
+    
+    print(f"✅ SUCCÈS : {len(df)} jours d'historique (Février-Novembre) ont été restaurés.")
+    print("👉 Étape suivante : Lancez 'python robot.py' pour synchroniser avec aujourd'hui.")
+
+except Exception as e:
+    print(f"❌ Erreur lors de la conversion : {e}")
