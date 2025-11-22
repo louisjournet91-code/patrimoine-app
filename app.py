@@ -13,7 +13,7 @@ st.set_page_config(page_title="Tableau de Bord", layout="wide", page_icon="💎"
 with st.sidebar:
     st.header("⚙️ Préférences")
     dark_mode = st.toggle("🌙 Mode Sombre", value=True)
-    st.caption("Tableau de Bord V.1.4 (Patch Robustesse)")
+    st.caption("Tableau de Bord V.1.5 (Full Robustesse)")
 
 # Définition des palettes selon le mode
 if dark_mode:
@@ -142,36 +142,25 @@ def load_data():
 @st.cache_data(ttl=300)
 def get_live_prices(tickers):
     """
-    VERSION CORRIGÉE ET BLINDÉE :
-    Récupère les prix un par un pour éviter que Yahoo Finance ne renvoie des erreurs sur les lots.
+    Récupération unitaire robuste pour le portefeuille
     """
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
     real_ticks = [t for t in tickers if t != "CASH" and isinstance(t, str)]
     
     if not real_ticks: return prices
     
-    # Barre de progression discrète si besoin, sinon boucle simple
     for t in real_ticks:
         try:
-            # Utilisation de Ticker().history qui est beaucoup plus fiable que download() pour les ETF Euronext
             hist = yf.Ticker(t).history(period="5d")
             
             if not hist.empty:
-                # Prix actuel (Dernière clôture disponible)
                 cur_price = float(hist['Close'].iloc[-1])
-                
-                # Prix précédent (J-1 ou J-2 selon dispo)
-                if len(hist) > 1:
-                    prev_price = float(hist['Close'].iloc[-2])
-                else:
-                    prev_price = cur_price
-                
+                prev_price = float(hist['Close'].iloc[-2]) if len(hist) > 1 else cur_price
                 prices[t] = {"cur": cur_price, "prev": prev_price}
             else:
-                # Fallback sur download classique si history vide (rare)
+                # Fallback download
                 data = yf.download(t, period="5d", progress=False)
                 if not data.empty:
-                     # Gestion complexité MultiIndex
                     if 'Close' in data.columns:
                         vals = data['Close']
                         prices[t] = {
@@ -189,20 +178,36 @@ def get_live_prices(tickers):
 
 @st.cache_data(ttl=3600)
 def get_market_indices():
+    """
+    CORRECTION MAJEURE : On abandonne le download groupé pour les indices aussi.
+    On boucle sur chaque indice pour garantir la donnée.
+    """
     targets = {"S&P 500": "^GSPC", "CAC 40": "^FCHI", "Bitcoin": "BTC-EUR", "VIX": "^VIX"}
     res = []
-    try:
-        # Ici le download groupé fonctionne souvent mieux pour les indices majeurs
-        data = yf.download(list(targets.values()), period="5d", progress=False)['Close']
-        for name, tick in targets.items():
-            try:
-                if tick in data.columns:
-                    cur = float(data[tick].iloc[-1])
-                    prev = float(data[tick].iloc[-2])
-                    perf = ((cur - prev)/prev)*100
-                    res.append({"Indice": name, "Prix": cur, "24h %": perf})
-            except: pass
-    except: pass
+    
+    for name, tick in targets.items():
+        try:
+            # Méthode unitaire (la plus fiable actuellement)
+            ticker_obj = yf.Ticker(tick)
+            hist = ticker_obj.history(period="5d")
+            
+            if not hist.empty:
+                cur = float(hist['Close'].iloc[-1])
+                # On cherche l'avant-dernier prix pour le % 24h
+                if len(hist) > 1:
+                    prev = float(hist['Close'].iloc[-2])
+                else:
+                    prev = cur # Pas de variation si pas d'historique
+                
+                perf = ((cur - prev)/prev)*100 if prev != 0 else 0.0
+                res.append({"Indice": name, "Prix": cur, "24h %": perf})
+            else:
+                # Fallback silencieux (évite de planter tout le dashboard)
+                pass 
+                
+        except Exception:
+            pass
+            
     return pd.DataFrame(res)
 
 # --- 4. EXÉCUTION & CALCULS ---
@@ -216,7 +221,6 @@ prices = get_live_prices(df_pf['Ticker'].unique())
 df_pf['Prix_Actuel'] = df_pf['Ticker'].apply(lambda t: prices.get(t, {}).get('cur', 0.0) if t != "CASH" else 1.0)
 
 # SÉCURITÉ : Si prix = 0 (échec API), on remet le PRU pour ne pas afficher une perte de 100%
-# Cela évite le krach visuel si Yahoo bugge
 df_pf.loc[(df_pf['Prix_Actuel'] == 0) & (df_pf['Ticker'] != "CASH"), 'Prix_Actuel'] = df_pf['PRU']
 
 df_pf['Prev_Price'] = df_pf['Ticker'].apply(lambda t: prices.get(t, {}).get('prev', 0.0) if t != "CASH" else 1.0)
