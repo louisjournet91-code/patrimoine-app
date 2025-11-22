@@ -149,21 +149,31 @@ c4.metric("Volatilité", f"{volatility:.2f} %", "Risque Annualisé")
 
 # --- GRAPHIQUES ---
 st.markdown("---")
-st.markdown("<div class='section-header'>📊 Analyse & Marché</div>", unsafe_allow_html=True)
+col_titre, col_filtre = st.columns([3, 1])
+with col_titre:
+    st.markdown("<div class='section-header'>📊 Analyse & Marché</div>", unsafe_allow_html=True)
+with col_filtre:
+    periode = st.selectbox("Période", ["Tout", "YTD (Année)", "1 An", "6 Mois", "3 Mois"], index=1)
 
+# Filtrage des données
 if not df_hist.empty:
-    max_histo = df_hist['Total'].max()
-    drawdown = ((TOTAL_ACTUEL - max_histo) / max_histo) * 100
+    df_filtered = df_hist.copy()
+    today = datetime.now()
     
-    col_dd1, col_dd2 = st.columns([1, 3])
-    with col_dd1:
-        st.metric("Drawdown", f"{drawdown:.2f} %", delta_color="off")
-        st.caption(f"Plus Haut : {max_histo:,.0f} €")
+    if periode == "YTD (Année)":
+        start_date = datetime(today.year, 1, 1)
+        df_filtered = df_filtered[df_filtered['Date'] >= start_date]
+    elif periode == "1 An":
+        start_date = today - pd.DateOffset(years=1)
+        df_filtered = df_filtered[df_filtered['Date'] >= start_date]
+    elif periode == "6 Mois":
+        start_date = today - pd.DateOffset(months=6)
+        df_filtered = df_filtered[df_filtered['Date'] >= start_date]
+    elif periode == "3 Mois":
+        start_date = today - pd.DateOffset(months=3)
+        df_filtered = df_filtered[df_filtered['Date'] >= start_date]
     
-    with col_dd2:
-        if drawdown > -5: st.info("💎 **Solidité :** Proche du sommet.")
-        elif drawdown > -15: st.warning("⚠️ **Correction :** Opportunité ?")
-        else: st.error("🚨 **Bear Market :** Zone d'achat.")
+    # ... (La suite de votre code Drawdown et Graphiques utilise maintenant df_filtered au lieu de df_hist)
 
 if not df_hist.empty and len(df_hist) > 1:
     c1, c2 = st.columns(2)
