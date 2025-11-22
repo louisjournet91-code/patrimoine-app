@@ -302,7 +302,7 @@ if not df_hist.empty:
     fig_heat.update_layout(
         template="plotly_dark", # DARK FORCÉ
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-        xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=0, t=30, b=0)
+        xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=0, t=10, b=0)
     )
     st.plotly_chart(fig_heat, use_container_width=True)
 
