@@ -102,11 +102,19 @@ else:
                 delta_pct = (delta_day / last_val) * 100
         except: pass
 
-CAPITAL_INITIAL = 15450.00  
-DATE_DEBUT = datetime(2022, 1, 1) 
+# Calcul dynamique du début de l'aventure
+if not df_hist.empty:
+    # On prend la toute première ligne du fichier historique
+    start_row = df_hist.iloc[0]
+    CAPITAL_INITIAL = float(start_row['Total'])
+    DATE_DEBUT = start_row['Date']
+else:
+    # Valeurs par défaut si historique vide
+    CAPITAL_INITIAL = 15450.00
+    DATE_DEBUT = datetime(2022, 1, 1)
+
 annees = (datetime.now() - DATE_DEBUT).days / 365.25
 cagr_val = ((TOTAL_ACTUEL / CAPITAL_INITIAL) ** (1 / annees) - 1) * 100 if annees > 0 and TOTAL_ACTUEL > 0 else 0.0
-
 # --- 3. AFFICHAGE ---
 
 with st.sidebar:
