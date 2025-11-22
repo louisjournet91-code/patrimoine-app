@@ -447,3 +447,56 @@ if not df_hist.empty:
         margin=dict(l=0, r=0, t=30, b=0)
     )
     st.plotly_chart(fig_heat, use_container_width=True)
+
+    # --- PROJECTION PATRIMONIALE ---
+st.markdown("---")
+st.markdown("<div class='section-header'>🔮 Projection : Liberté Financière</div>", unsafe_allow_html=True)
+
+# Paramètres de simulation dans un Expander pour ne pas polluer
+with st.expander("⚙️ Paramètres de Simulation", expanded=True):
+    col_sim1, col_sim2, col_sim3 = st.columns(3)
+    epargne_mensuelle = col_sim1.number_input("Épargne Mensuelle (€)", value=1000, step=100)
+    annees_proj = col_sim2.slider("Horizon (Années)", 5, 30, 15)
+    rendement_hypoth = col_sim3.slider("Hypothèse Rendement (%)", 2.0, 15.0, float(cagr_val) if cagr_val > 0 else 8.0)
+
+# Calcul de la projection
+future_data = []
+capital = TOTAL_ACTUEL
+dates_future = []
+current_year = datetime.now().year
+
+for i in range(1, (annees_proj * 12) + 1):
+    # Apport mensuel + Rendement mensuel composé
+    r_mensuel = (1 + rendement_hypoth/100)**(1/12) - 1
+    capital = (capital + epargne_mensuelle) * (1 + r_mensuel)
+    
+    # On ajoute un point de donnée par an pour alléger le graph
+    if i % 12 == 0:
+        future_data.append(round(capital, 2))
+        dates_future.append(current_year + (i // 12))
+
+# Création du DataFrame de projection
+df_proj = pd.DataFrame({"Année": dates_future, "Patrimoine Projeté": future_data})
+
+# Graphique de Projection
+fig_proj = px.bar(df_proj, x="Année", y="Patrimoine Projeté", text="Patrimoine Projeté")
+fig_proj.update_traces(
+    marker_color=chart_line_color, 
+    texttemplate='%{text:.2s} €', 
+    textposition='outside'
+)
+fig_proj.update_layout(
+    template="plotly_dark" if dark_mode else "plotly_white",
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
+    height=400,
+    margin=dict(t=30, l=0, r=0, b=0),
+    yaxis=dict(showgrid=True, gridcolor=border_color)
+)
+
+st.plotly_chart(fig_proj, use_container_width=True)
+
+# Phrase de conclusion dynamique
+capital_final = future_data[-1] if future_data else 0
+rente_mensuelle = (capital_final * 0.04) / 12 # Règle des 4% de retrait safe
+st.info(f"🚀 Avec **{epargne_mensuelle}€** par mois et un rendement de **{rendement_hypoth}%**, vous auriez **{capital_final:,.0f} €** dans {annees_proj} ans. Cela génèrerait une rente passive estimée (4%) de **{rente_mensuelle:,.0f} € / mois**.")
