@@ -113,20 +113,29 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Calcul Volatilité
+# Calcul Indicateurs de Risque (Volatilité & Sharpe)
 if not df_hist.empty:
     def clean_pct_metric(x):
         try: return float(str(x).replace('%', '').replace(',', '.')) / 100
         except: return 0.0
+    
     daily_rets = df_hist['PF_Return_TWR'].apply(clean_pct_metric)
+    
+    # Volatilité Annualisée
     volatility = daily_rets.std() * (252 ** 0.5) * 100 
+    
+    # Ratio de Sharpe (Taux sans risque supposé 3% = 0.03)
+    mean_ret = daily_rets.mean() * 252
+    risk_free_rate = 0.03 
+    sharpe_ratio = (mean_ret - risk_free_rate) / (volatility/100) if volatility > 0 else 0.0
 else:
     volatility = 0.0
+    sharpe_ratio = 0.0
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Liquidité", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc." if TOTAL_ACTUEL > 0 else "0%")
-c2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%" if (TOTAL_ACTUEL-PV_TOTALE)!=0 else "0%")
-c3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
+c2.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Sharpe: {sharpe_ratio:.2f}") # J'ai mis le Sharpe ici en petit
+c3.metric("Plus-Value", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%")
 c4.metric("Volatilité", f"{volatility:.2f} %", "Risque Annualisé")
 
 # --- GRAPHIQUES (MODULE ANALYSTE) ---
