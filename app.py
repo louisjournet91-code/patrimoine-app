@@ -155,7 +155,7 @@ with col_titre:
 with col_filtre:
     periode = st.selectbox("Période", ["Tout", "YTD (Année)", "1 An", "6 Mois", "3 Mois"], index=1)
 
-# Filtrage des données
+# 1. Application du Filtre Temporel
 if not df_hist.empty:
     df_filtered = df_hist.copy()
     today = datetime.now()
@@ -172,26 +172,63 @@ if not df_hist.empty:
     elif periode == "3 Mois":
         start_date = today - pd.DateOffset(months=3)
         df_filtered = df_filtered[df_filtered['Date'] >= start_date]
-    
-    # ... (La suite de votre code Drawdown et Graphiques utilise maintenant df_filtered au lieu de df_hist)
 
-if not df_hist.empty and len(df_hist) > 1:
-    c1, c2 = st.columns(2)
-    with c1:
-        st.caption("Trajectoire")
-        fig = px.area(df_hist, x='Date', y='Total', line_shape='spline')
-        fig.update_layout(template="plotly_dark" if dark_mode else "simple_white", margin=dict(l=0,r=0,t=10,b=0), height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        fig.update_traces(line_color=chart_line_color, fillcolor=chart_fill_color)
-        st.plotly_chart(fig, use_container_width=True)
+    # 2. Calcul du Drawdown sur la période filtrée
+    if not df_filtered.empty:
+        max_histo = df_filtered['Total'].max()
+        # Attention : on prend la dernière valeur de la période filtrée
+        val_actuelle = df_filtered.iloc[-1]['Total']
+        drawdown = ((val_actuelle - max_histo) / max_histo) * 100
         
-    with c2:
-        st.caption("Benchmark (Base 100)")
-        if 'PF_Index100' in df_hist.columns and 'ESE_Index100' in df_hist.columns:
-            fig_b = go.Figure()
-            fig_b.add_trace(go.Scatter(x=df_hist['Date'], y=df_hist['PF_Index100'], name="Moi", line=dict(color=text_color, width=2)))
-            fig_b.add_trace(go.Scatter(x=df_hist['Date'], y=df_hist['ESE_Index100'], name="S&P500", line=dict(color='#94a3b8', dash='dot')))
-            fig_b.update_layout(template="plotly_dark" if dark_mode else "simple_white", margin=dict(l=0,r=0,t=10,b=0), height=350, legend=dict(orientation="h", y=1.1, x=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig_b, use_container_width=True)
+        col_dd1, col_dd2 = st.columns([1, 3])
+        with col_dd1:
+            st.metric("Drawdown (Période)", f"{drawdown:.2f} %", delta_color="off")
+            st.caption(f"Plus Haut Période : {max_histo:,.0f} €")
+        
+        with col_dd2:
+            if drawdown > -5: st.info("💎 **Solidité :** Proche du sommet de la période.")
+            elif drawdown > -15: st.warning("⚠️ **Correction :** Le marché respire.")
+            else: st.error("🚨 **Zone de baisse :** Opportunité potentielle.")
+
+    # 3. Affichage des Graphiques (Connectés à df_filtered !)
+    if not df_filtered.empty and len(df_filtered) > 1:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.caption(f"Trajectoire ({periode})")
+            # CORRECTION ICI : On utilise df_filtered
+            fig = px.area(df_filtered, x='Date', y='Total', line_shape='spline')
+            fig.update_layout(
+                template="plotly_dark" if dark_mode else "simple_white", 
+                margin=dict(l=0,r=0,t=10,b=0), height=350, 
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+            )
+            fig.update_traces(line_color=chart_line_color, fillcolor=chart_fill_color)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        with c2:
+            st.caption(f"Benchmark Base 100 ({periode})")
+            # CORRECTION ICI : On utilise df_filtered
+            if 'PF_Index100' in df_filtered.columns and 'ESE_Index100' in df_filtered.columns:
+                # Recalcul de la base 100 pour que les courbes partent du même point sur le graph zoomé
+                first_pf = df_filtered.iloc[0]['PF_Index100']
+                first_ese = df_filtered.iloc[0]['ESE_Index100']
+                
+                # Normalisation dynamique pour le graphique
+                y_moi = (df_filtered['PF_Index100'] / first_pf) * 100
+                y_ese = (df_filtered['ESE_Index100'] / first_ese) * 100
+
+                fig_b = go.Figure()
+                fig_b.add_trace(go.Scatter(x=df_filtered['Date'], y=y_moi, name="Moi", line=dict(color=text_color, width=2)))
+                fig_b.add_trace(go.Scatter(x=df_filtered['Date'], y=y_ese, name="S&P500", line=dict(color='#94a3b8', dash='dot')))
+                fig_b.update_layout(
+                    template="plotly_dark" if dark_mode else "simple_white", 
+                    margin=dict(l=0,r=0,t=10,b=0), height=350, 
+                    legend=dict(orientation="h", y=1.1, x=0), 
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig_b, use_container_width=True)
+    else:
+        st.warning("Pas assez de données pour cette période.")
 
 # --- MARCHÉS & ALLOCATION ---
 st.caption("Pulsation Mondiale")
