@@ -333,18 +333,88 @@ st.plotly_chart(fig_alloc, use_container_width=True)
 # ... (Reste du code inchangé)
 
 # --- DETAIL ---
+# ... (Code précédent inchangé) ...
+
+# --- DETAIL (STYLE BENTO) ---
 st.markdown("---")
-st.markdown("<div class='section-header'>📋 Détail du Portefeuille</div>", unsafe_allow_html=True)
+st.markdown("<div class='section-header'>📋 Détail des Actifs</div>", unsafe_allow_html=True)
 
 if not df_pf.empty:
-    def style_pos_neg(v):
-        if pd.isna(v): return ""
-        return f'color: {"#10b981" if v >= 0 else "#ef4444"}; font-weight: 700;'
+    # Configuration de la grille (3 cartes par ligne)
+    COLS = 3
+    
+    # On découpe le dataframe en "morceaux" de 3 actifs pour gérer les lignes
+    rows = [df_pf.iloc[i:i + COLS] for i in range(0, len(df_pf), COLS)]
 
-    st.dataframe(
-        df_pf[['Nom', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_24h_€']].style.format({
-            "Quantité": "{:.4f}", "PRU": "{:.2f} €", "Prix_Actuel": "{:.2f} €",
-            "Valo": "{:.2f} €", "Perf_%": "{:+.2f} %", "Var_24h_€": "{:+.2f} €"
-        }).map(style_pos_neg, subset=['Perf_%', 'Var_24h_€']),
-        hide_index=True, use_container_width=True
-    )
+    for row_data in rows:
+        cols = st.columns(COLS)
+        
+        for i, (index, asset) in enumerate(row_data.iterrows()):
+            with cols[i]:
+                # Logique de couleur (Vert pour gain, Rouge pour perte)
+                color_perf = "#10b981" if asset['Perf_%'] >= 0 else "#ef4444"
+                bg_perf = "rgba(16, 185, 129, 0.15)" if asset['Perf_%'] >= 0 else "rgba(239, 68, 68, 0.15)"
+                arrow = "▲" if asset['Perf_%'] >= 0 else "▼"
+                
+                # Construction de la "Carte Bento" en HTML/CSS pur
+                st.markdown(f"""
+                <div style="
+                    background-color: {card_bg};
+                    border: 1px solid {border_color};
+                    border-radius: 20px;
+                    padding: 20px;
+                    height: 100%;
+                    transition: transform 0.2s;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <span style="font-weight: 700; font-size: 1.1rem; color: {text_color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {asset['Nom']}
+                        </span>
+                        <span style="
+                            background-color: {bg_perf}; 
+                            color: {color_perf}; 
+                            padding: 4px 10px; 
+                            border-radius: 10px; 
+                            font-size: 0.85rem; 
+                            font-weight: 600;">
+                            {arrow} {asset['Perf_%']:+.2f}%
+                        </span>
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <div style="font-size: 0.85rem; opacity: 0.6; color: {text_color};">Valorisation</div>
+                        <div style="
+                            font-size: 1.8rem; 
+                            font-weight: 800; 
+                            background: {metric_gradient}; 
+                            -webkit-background-clip: text; 
+                            -webkit-text-fill-color: transparent;">
+                            {asset['Valo']:,.2f} €
+                        </div>
+                    </div>
+
+                    <div style="
+                        display: flex; 
+                        justify-content: space-between; 
+                        border-top: 1px solid {border_color}; 
+                        padding-top: 12px;
+                        font-size: 0.9rem;
+                        color: {text_color};
+                    ">
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="opacity: 0.5; font-size: 0.75rem;">Quantité</span>
+                            <span>{asset['Quantité']:.4f}</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; text-align: right;">
+                            <span style="opacity: 0.5; font-size: 0.75rem;">Prix Actuel</span>
+                            <span>{asset['Prix_Actuel']:.2f} €</span>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Un petit espace entre les rangées de cartes
+        st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+else:
+    st.info("Aucun actif à afficher.")
