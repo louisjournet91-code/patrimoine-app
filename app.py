@@ -13,9 +13,8 @@ st.set_page_config(page_title="Tableau de Bord", layout="wide", page_icon="💎"
 with st.sidebar:
     st.header("⚙️ Préférences")
     dark_mode = st.toggle("🌙 Mode Sombre", value=True)
-    st.caption("Tableau de Bord V.1.5 (Full Robustesse)")
+    st.caption("Tableau de Bord V.1.6 (Production)")
 
-# Définition des palettes selon le mode
 if dark_mode:
     bg_color = "#0f172a"
     text_color = "#f8fafc"
@@ -25,14 +24,7 @@ if dark_mode:
     chart_fill_color = "rgba(56, 189, 248, 0.15)"
     metric_gradient = "linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)"
     css_theme = """
-    .stApp {
-        background-color: #020617;
-        background-image: 
-            radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-            radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
-            radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
-        color: #f8fafc;
-    }
+    .stApp { background-color: #020617; color: #f8fafc; }
     h1, h2, h3, p, span, div { color: #f8fafc; }
     div[data-testid="stMetricLabel"] { color: #94a3b8 !important; }
     """
@@ -45,19 +37,11 @@ else:
     chart_fill_color = "rgba(37, 99, 235, 0.1)"
     metric_gradient = "linear-gradient(135deg, #0f172a 0%, #334155 100%)"
     css_theme = """
-    .stApp {
-        background-color: #f0f4f8;
-        background-image: 
-            radial-gradient(at 0% 0%, hsla(210,100%,96%,1) 0, transparent 50%), 
-            radial-gradient(at 50% 0%, hsla(220,100%,93%,1) 0, transparent 50%), 
-            radial-gradient(at 100% 0%, hsla(190,100%,94%,1) 0, transparent 50%);
-        color: #1e293b;
-    }
+    .stApp { background-color: #f0f4f8; color: #1e293b; }
     h1, h2, h3 { color: #0f172a; }
     div[data-testid="stMetricLabel"] { color: #64748b !important; }
     """
 
-# Injection du CSS
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap');
@@ -66,21 +50,11 @@ st.markdown(f"""
     div[data-testid="stMetric"], div.stPlotlyChart, div.stExpander {{
         background: {card_bg} !important;
         backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
         border-radius: 24px;
         border: 1px solid {border_color};
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
         padding: 24px !important;
-        transition: transform 0.3s ease;
     }}
-    div[data-testid="stDataFrame"] {{ background: transparent !important; border: none !important; box-shadow: none !important; }}
-    div[data-testid="stDataFrame"] > div {{
-        background: {card_bg} !important; border-radius: 24px; backdrop-filter: blur(10px);
-        padding: 10px; border: 1px solid {border_color};
-    }}
-    div[data-testid="stMetric"]:hover {{ transform: translateY(-5px); }}
-    h1, h2, h3 {{ font-weight: 800; letter-spacing: -0.5px; }}
-    div[data-testid="stMetricLabel"] {{ font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }}
+    div[data-testid="stDataFrame"] {{ background: transparent !important; border: none !important; }}
     div[data-testid="stMetricValue"] {{
         font-size: 32px; font-weight: 800;
         background: {metric_gradient};
@@ -98,190 +72,139 @@ st.markdown(f"""
 FILE_PORTFOLIO = 'portefeuille.csv'
 FILE_HISTORY = 'historique.csv'
 
-INITIAL_PORTFOLIO = {
-    "Ticker": ["ESE.PA", "CASH"],
-    "Nom": ["S&P 500", "Liquidités"],
-    "Type": ["ETF", "Cash"],
-    "Quantité": [10.0, 1000.0],
-    "PRU": [25.0, 1.0]
-}
-
-def safe_float(x):
-    if pd.isna(x) or x == "": return 0.0
-    s = str(x).strip().replace('"', '').replace('%', '').replace('€', '').replace(' ', '')
-    try: return float(s.replace(',', '.'))
-    except: return 0.0
-
+# Chargement des données avec gestion d'erreur explicite
 def load_data():
-    # Initialisation par défaut
-    df = pd.DataFrame(INITIAL_PORTFOLIO)
-    
+    # 1. Portefeuille
     if os.path.exists(FILE_PORTFOLIO):
         try:
-            # Tentative de lecture robuste
-            temp_df = pd.read_csv(FILE_PORTFOLIO, sep=None, engine='python', dtype=str)
-            
-            # NETTOYAGE CRITIQUE : On supprime les espaces potentiels dans les noms de colonnes
-            # " Ticker" ou "Ticker " deviendra "Ticker"
-            temp_df.columns = temp_df.columns.str.strip()
-            
-            # VÉRIFICATION D'INTÉGRITÉ
-            # Si la colonne 'Ticker' n'existe pas, c'est que le CSV est mal lu (mauvais séparateur)
-            if 'Ticker' in temp_df.columns:
-                df = temp_df
-            else:
-                # Fallback silencieux ou log en console si besoin
-                print("Erreur structure CSV : Colonne 'Ticker' introuvable. Chargement défaut.")
-                
+            df_pf = pd.read_csv(FILE_PORTFOLIO, sep=',', dtype=str) # Le robot écrit avec des virgules
         except Exception as e:
-            print(f"Erreur lecture CSV : {e}")
-            # En cas de crash total du fichier, on garde le df initialisé au début
-            pass
+            st.error(f"Erreur lecture portefeuille: {e}")
+            df_pf = pd.DataFrame()
+    else:
+        df_pf = pd.DataFrame()
 
-    # Nettoyage des données numériques
-    for c in ['Quantité', 'PRU']:
-        if c in df.columns: 
-            df[c] = df[c].apply(safe_float)
+    # Nettoyage Portefeuille
+    def clean_float(x):
+        if pd.isna(x): return 0.0
+        return float(str(x).replace(',', '.').replace('€', '').replace(' ', '').replace('%', ''))
 
-    # Gestion de l'historique (inchangée mais sécurisée)
-    hist_cols = ["Date", "Total", "Delta", "PF_Index100", "ESE_Index100"]
-    df_h = pd.DataFrame(columns=hist_cols)
-    
+    if not df_pf.empty:
+        for c in ['Quantité', 'PRU']:
+            if c in df_pf.columns: df_pf[c] = df_pf[c].apply(clean_float)
+
+    # 2. Historique
+    df_h = pd.DataFrame()
     if os.path.exists(FILE_HISTORY):
         try:
-            temp_h = pd.read_csv(FILE_HISTORY, sep=None, engine='python', on_bad_lines='skip')
+            # LE ROBOT ÉCRIT AVEC DES POINTS-VIRGULES (sep=';')
+            df_h = pd.read_csv(FILE_HISTORY, sep=';', on_bad_lines='skip', engine='python')
             
-            # Même logique de sécurité si nécessaire, mais ici on assure juste le format
-            if 'Date' in temp_h.columns:
-                for c in temp_h.columns:
-                    if c != "Date": temp_h[c] = temp_h[c].apply(safe_float)
-                temp_h['Date'] = pd.to_datetime(temp_h['Date'], dayfirst=True, errors='coerce')
-                df_h = temp_h.dropna(subset=['Date']).sort_values('Date')
-        except: 
-            pass
-
-    return df, df_h
+            # Conversion Date
+            df_h['Date'] = pd.to_datetime(df_h['Date'], dayfirst=True, errors='coerce')
+            df_h = df_h.dropna(subset=['Date']).sort_values('Date')
+            
+            # Nettoyage des colonnes numériques pour les graphiques
+            for col in ['Total', 'PF_Index100', 'ESE_Index100']:
+                if col in df_h.columns:
+                    df_h[col] = df_h[col].apply(clean_float)
+                    
+        except Exception as e:
+            st.error(f"Erreur lecture historique: {e}")
+            
+    return df_pf, df_h
 
 @st.cache_data(ttl=300)
 def get_live_prices(tickers):
-    """
-    Récupération unitaire robuste pour le portefeuille
-    """
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
     real_ticks = [t for t in tickers if t != "CASH" and isinstance(t, str)]
-    
     if not real_ticks: return prices
     
     for t in real_ticks:
         try:
             hist = yf.Ticker(t).history(period="5d")
-            
             if not hist.empty:
-                cur_price = float(hist['Close'].iloc[-1])
-                prev_price = float(hist['Close'].iloc[-2]) if len(hist) > 1 else cur_price
-                prices[t] = {"cur": cur_price, "prev": prev_price}
+                cur = float(hist['Close'].iloc[-1])
+                prev = float(hist['Close'].iloc[-2]) if len(hist) > 1 else cur
+                prices[t] = {"cur": cur, "prev": prev}
             else:
-                # Fallback download
-                data = yf.download(t, period="5d", progress=False)
+                # Fallback
+                data = yf.download(t, period="1d", progress=False)
                 if not data.empty:
-                    if 'Close' in data.columns:
-                        vals = data['Close']
-                        prices[t] = {
-                            "cur": float(vals.iloc[-1]), 
-                            "prev": float(vals.iloc[-2]) if len(vals) > 1 else float(vals.iloc[-1])
-                        }
-                    else:
-                        prices[t] = {"cur": 0.0, "prev": 0.0}
+                    val = data['Close'].iloc[-1] if 'Close' in data.columns else data.iloc[-1]
+                    prices[t] = {"cur": float(val), "prev": float(val)}
                 else:
                     prices[t] = {"cur": 0.0, "prev": 0.0}
-        except Exception:
+        except:
             prices[t] = {"cur": 0.0, "prev": 0.0}
-            
     return prices
 
 @st.cache_data(ttl=3600)
 def get_market_indices():
-    """
-    CORRECTION MAJEURE : On abandonne le download groupé pour les indices aussi.
-    On boucle sur chaque indice pour garantir la donnée.
-    """
     targets = {"S&P 500": "^GSPC", "CAC 40": "^FCHI", "Bitcoin": "BTC-EUR", "VIX": "^VIX"}
     res = []
-    
     for name, tick in targets.items():
         try:
-            # Méthode unitaire (la plus fiable actuellement)
-            ticker_obj = yf.Ticker(tick)
-            hist = ticker_obj.history(period="5d")
-            
-            if not hist.empty:
-                cur = float(hist['Close'].iloc[-1])
-                # On cherche l'avant-dernier prix pour le % 24h
-                if len(hist) > 1:
-                    prev = float(hist['Close'].iloc[-2])
-                else:
-                    prev = cur # Pas de variation si pas d'historique
-                
-                perf = ((cur - prev)/prev)*100 if prev != 0 else 0.0
+            h = yf.Ticker(tick).history(period="5d")
+            if not h.empty:
+                cur = float(h['Close'].iloc[-1])
+                prev = float(h['Close'].iloc[-2]) if len(h)>1 else cur
+                perf = ((cur-prev)/prev)*100 if prev != 0 else 0
                 res.append({"Indice": name, "Prix": cur, "24h %": perf})
-            else:
-                # Fallback silencieux (évite de planter tout le dashboard)
-                pass 
-                
-        except Exception:
-            pass
-            
+        except: pass
     return pd.DataFrame(res)
 
-# --- 4. EXÉCUTION & CALCULS ---
+# --- 4. EXÉCUTION ---
 
 df_pf, df_hist = load_data()
 
-# Appel de la fonction corrigée
-prices = get_live_prices(df_pf['Ticker'].unique())
-
-# Application des prix
-df_pf['Prix_Actuel'] = df_pf['Ticker'].apply(lambda t: prices.get(t, {}).get('cur', 0.0) if t != "CASH" else 1.0)
-
-# SÉCURITÉ : Si prix = 0 (échec API), on remet le PRU pour ne pas afficher une perte de 100%
-df_pf.loc[(df_pf['Prix_Actuel'] == 0) & (df_pf['Ticker'] != "CASH"), 'Prix_Actuel'] = df_pf['PRU']
-
-df_pf['Prev_Price'] = df_pf['Ticker'].apply(lambda t: prices.get(t, {}).get('prev', 0.0) if t != "CASH" else 1.0)
-df_pf.loc[(df_pf['Prev_Price'] == 0) & (df_pf['Ticker'] != "CASH"), 'Prev_Price'] = df_pf['PRU']
-
-df_pf['Valo'] = df_pf['Quantité'] * df_pf['Prix_Actuel']
-df_pf['Investi'] = df_pf['Quantité'] * df_pf['PRU']
-df_pf['PV_Latente'] = df_pf['Valo'] - df_pf['Investi']
-df_pf['Perf_%'] = (df_pf['PV_Latente'] / df_pf['Investi'] * 100).fillna(0)
-df_pf['Var_24h_€'] = df_pf['Valo'] - (df_pf['Quantité'] * df_pf['Prev_Price'])
-
-TOTAL_ACTUEL = df_pf['Valo'].sum()
-CASH_DISPO = df_pf[df_pf['Ticker']=='CASH']['Valo'].sum()
-PV_TOTALE = df_pf['PV_Latente'].sum()
-
-# Calcul variation par rapport à l'historique
-delta_day = 0.0
-delta_pct = 0.0
-if not df_hist.empty:
-    try:
-        last_hist_total = float(str(df_hist.iloc[-1]['Total']).replace(',', '.'))
-        if last_hist_total > 0:
-            delta_day = TOTAL_ACTUEL - last_hist_total
-            delta_pct = (delta_day / last_hist_total) * 100
-    except:
-        delta_day = df_pf['Var_24h_€'].sum()
+# Si le portefeuille est vide, on met des données par défaut pour ne pas planter
+if df_pf.empty:
+    st.warning("⚠️ Portefeuille vide ou non chargé.")
+    TOTAL_ACTUEL = 0.0
+    CASH_DISPO = 0.0
+    PV_TOTALE = 0.0
+    delta_day = 0.0
+    delta_pct = 0.0
 else:
+    prices = get_live_prices(df_pf['Ticker'].unique())
+    
+    df_pf['Prix_Actuel'] = df_pf['Ticker'].apply(lambda t: prices.get(t, {}).get('cur', 0.0) if t != "CASH" else 1.0)
+    # Sécurité prix 0
+    df_pf.loc[(df_pf['Prix_Actuel'] == 0) & (df_pf['Ticker'] != "CASH"), 'Prix_Actuel'] = df_pf['PRU']
+    
+    df_pf['Prev_Price'] = df_pf['Ticker'].apply(lambda t: prices.get(t, {}).get('prev', 0.0) if t != "CASH" else 1.0)
+    
+    df_pf['Valo'] = df_pf['Quantité'] * df_pf['Prix_Actuel']
+    df_pf['Investi'] = df_pf['Quantité'] * df_pf['PRU']
+    df_pf['PV_Latente'] = df_pf['Valo'] - df_pf['Investi']
+    df_pf['Perf_%'] = (df_pf['PV_Latente'] / df_pf['Investi'] * 100).fillna(0)
+    df_pf['Var_24h_€'] = df_pf['Valo'] - (df_pf['Quantité'] * df_pf['Prev_Price'])
+
+    TOTAL_ACTUEL = df_pf['Valo'].sum()
+    CASH_DISPO = df_pf[df_pf['Ticker']=='CASH']['Valo'].sum()
+    PV_TOTALE = df_pf['PV_Latente'].sum()
+
+    # Calcul Delta
     delta_day = df_pf['Var_24h_€'].sum()
+    delta_pct = 0.0
+    if not df_hist.empty:
+        try:
+            last_val = df_hist.iloc[-1]['Total']
+            if last_val > 0:
+                delta_day = TOTAL_ACTUEL - last_val
+                delta_pct = (delta_day / last_val) * 100
+        except: pass
 
 CAPITAL_INITIAL = 15450.00  
 DATE_DEBUT = datetime(2022, 1, 1) 
 annees = (datetime.now() - DATE_DEBUT).days / 365.25
 cagr_val = ((TOTAL_ACTUEL / CAPITAL_INITIAL) ** (1 / annees) - 1) * 100 if annees > 0 and TOTAL_ACTUEL > 0 else 0.0
 
-# --- 5. INTERFACE UTILISATEUR ---
+# --- 5. AFFICHAGE ---
 
 st.markdown("## 🏛️ Tableau de Bord")
-st.caption(f"Valorisation en temps réel • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"Dernière synchro • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 st.markdown(f"""
 <div style="background: linear-gradient(135deg, {bg_color} 0%, {card_bg} 100%); 
@@ -297,40 +220,20 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns(3)
-col1.metric("Liquidité", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc.")
-col2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%")
-col3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
+c1, c2, c3 = st.columns(3)
+c1.metric("Liquidité", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc." if TOTAL_ACTUEL > 0 else "0%")
+c2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%" if (TOTAL_ACTUEL-PV_TOTALE)!=0 else "0%")
+c3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 
-st.markdown("<div class='section-header'>📋 Détail du Portefeuille</div>", unsafe_allow_html=True)
-
-df_display = df_pf[['Nom', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_24h_€']].copy()
-
-def style_pos_neg(v):
-    if pd.isna(v): return ""
-    color = '#10b981' if v >= 0 else '#ef4444'
-    return f'color: {color}; font-weight: 700;'
-
-st.dataframe(
-    df_display.style.format({
-        "Quantité": "{:.4f}",
-        "PRU": "{:.2f} €",
-        "Prix_Actuel": "{:.2f} €",
-        "Valo": "{:.2f} €",
-        "Perf_%": "{:+.2f} %",
-        "Var_24h_€": "{:+.2f} €"
-    }).map(style_pos_neg, subset=['Perf_%', 'Var_24h_€']),
-    hide_index=True,
-    use_container_width=True
-)
-
+# --- GRAPHIQUES ---
 st.markdown("---")
 st.markdown("<div class='section-header'>📊 Analyse & Marché</div>", unsafe_allow_html=True)
 
-if not df_hist.empty:
+if not df_hist.empty and len(df_hist) > 1:
     c1, c2 = st.columns(2)
     with c1:
         st.caption("Trajectoire Patrimoniale")
+        # Graphique Aire
         fig = px.area(df_hist, x='Date', y='Total', line_shape='spline')
         fig.update_layout(
             template="plotly_dark" if dark_mode else "simple_white",
@@ -353,8 +256,13 @@ if not df_hist.empty:
             )
             st.plotly_chart(fig_b, use_container_width=True)
 else:
-    st.info("Attente de la première exécution du Robot de nuit...")
+    if df_hist.empty:
+        st.error("❌ Fichier historique introuvable ou illisible.")
+        st.info("Vérifiez que vous avez bien fait 'git push' après avoir lancé le robot.")
+    else:
+        st.warning("⚠️ Historique insuffisant (1 seule date). Attendez demain ou lancez master_reset.py.")
 
+# --- MARCHÉS ---
 st.caption("Pulsation Mondiale")
 df_m = get_market_indices()
 if not df_m.empty:
@@ -363,45 +271,19 @@ if not df_m.empty:
         with cols[i]:
             st.metric(row['Indice'], f"{row['Prix']:.2f}", f"{row['24h %']:+.2f}%")
 
+# --- DETAIL ---
 st.markdown("---")
-st.markdown("<div class='section-header'>🔮 Projection & Rente</div>", unsafe_allow_html=True)
+st.markdown("<div class='section-header'>📋 Détail du Portefeuille</div>", unsafe_allow_html=True)
 
-col_sim_input, col_sim_graph = st.columns([1, 3])
+if not df_pf.empty:
+    def style_pos_neg(v):
+        if pd.isna(v): return ""
+        return f'color: {"#10b981" if v >= 0 else "#ef4444"}; font-weight: 700;'
 
-with col_sim_input:
-    with st.expander("Paramètres de Simulation", expanded=True):
-        apport_mensuel = st.number_input("Apport Mensuel (€)", value=1000, step=100, key="sim_add")
-        taux_annuel = st.slider("Rendement Annuel (%)", 2.0, 15.0, 8.0, 0.5, key="sim_rate")
-        duree_ans = st.slider("Horizon (Années)", 5, 30, 15, key="sim_years")
-        
-        st.markdown(f"""
-        <div style="margin-top: 20px; padding: 15px; background: {card_bg}; border-radius: 12px; border: 1px solid {border_color};">
-            <small style="color: {text_color}; opacity: 0.7;">Capital Départ</small><br>
-            <strong style="color: {text_color};">{TOTAL_ACTUEL:,.0f} €</strong>
-        </div>
-        """, unsafe_allow_html=True)
-
-with col_sim_graph:
-    annees_proj = range(datetime.now().year, datetime.now().year + duree_ans + 1)
-    capital = [TOTAL_ACTUEL]
-    for i in range(duree_ans):
-        nouveau_montant = (capital[-1] + (apport_mensuel * 12)) * (1 + taux_annuel/100)
-        capital.append(nouveau_montant)
-    
-    df_sim = pd.DataFrame({"Année": annees_proj, "Capital": capital})
-    
-    fig_sim = px.area(df_sim, x="Année", y="Capital")
-    fig_sim.update_layout(
-        template="plotly_dark" if dark_mode else "simple_white",
-        height=400, margin=dict(l=0,r=0,t=20,b=0), hovermode="x unified",
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+    st.dataframe(
+        df_pf[['Nom', 'Quantité', 'PRU', 'Prix_Actuel', 'Valo', 'Perf_%', 'Var_24h_€']].style.format({
+            "Quantité": "{:.4f}", "PRU": "{:.2f} €", "Prix_Actuel": "{:.2f} €",
+            "Valo": "{:.2f} €", "Perf_%": "{:+.2f} %", "Var_24h_€": "{:+.2f} €"
+        }).map(style_pos_neg, subset=['Perf_%', 'Var_24h_€']),
+        hide_index=True, use_container_width=True
     )
-    fig_sim.update_traces(line_color='#10b981', fillcolor='rgba(16, 185, 129, 0.15)')
-    fig_sim.add_hline(y=1000000, line_dash="dot", line_color="#cbd5e1", annotation_text="1M€ (Liberté)", annotation_position="top left")
-    st.plotly_chart(fig_sim, use_container_width=True)
-    
-    final_cap = capital[-1]
-    k1, k2, k3 = st.columns(3)
-    k1.metric("Capital Final", f"{final_cap:,.0f} €")
-    k2.metric("Total Intérêts", f"{(final_cap - TOTAL_ACTUEL - (apport_mensuel * 12 * duree_ans)):,.0f} €")
-    k3.metric("Rente Mensuelle (4%)", f"{(final_cap * 0.04 / 12):,.0f} €", "Revenu Passif")
