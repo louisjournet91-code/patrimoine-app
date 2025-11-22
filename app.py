@@ -322,7 +322,7 @@ fig_alloc.update_layout(
         y=-0.1,               # En dessous du graph
         xanchor="center", 
         x=0.5                 # Centré
-    ),
+    ),)
     margin=dict(t=30, b=50, l=20, r=20) # Marge en bas pour le texte
 
 # ... (Reste du code inchangé)
