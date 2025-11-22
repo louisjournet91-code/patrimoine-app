@@ -385,3 +385,51 @@ if not df_pf.empty:
                 st.markdown(html_card.strip(), unsafe_allow_html=True)
 else:
     st.info("Aucun actif à afficher.")
+
+# --- MATRICE DE PERFORMANCE (HEDGE FUND STYLE) ---
+if not df_hist.empty:
+    st.markdown("<div class='section-header'>📅 Performance Mensuelle</div>", unsafe_allow_html=True)
+    
+    # Préparation des données
+    df_matrix = df_hist.copy()
+    df_matrix['Year'] = df_matrix['Date'].dt.year
+    df_matrix['Month'] = df_matrix['Date'].dt.month
+    # Calcul du rendement mensuel : (Fin du mois / Début du mois) - 1
+    # Simplification : on prend le rendement journalier cumulé
+    
+    # On convertit la colonne 'PF_Return_TWR' (qui est en string 'x,xx%') en float
+    def clean_pct(x):
+        if isinstance(x, str):
+            return float(x.replace('%', '').replace(',', '.')) / 100
+        return 0.0
+        
+    df_matrix['Daily_Return'] = df_matrix['PF_Return_TWR'].apply(clean_pct)
+    
+    # Pivot Table par Année/Mois
+    # Note: C'est une approximation, pour être précis il faudrait le NAV de fin de mois vs début de mois
+    monthly_returns = df_matrix.groupby(['Year', 'Month'])['Daily_Return'].sum() * 100 # Somme simple pour approximer
+    
+    matrix = monthly_returns.unstack(level=1).fillna(0)
+    
+    # Renommer les colonnes mois (1->Jan, etc.)
+    months_map = {1: 'Jan', 2: 'Fév', 3: 'Mar', 4: 'Avr', 5: 'Mai', 6: 'Juin', 
+                  7: 'Juil', 8: 'Août', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Déc'}
+    matrix.columns = [months_map.get(c, c) for c in matrix.columns]
+    
+    # Affichage Heatmap via Plotly
+    fig_heat = px.imshow(
+        matrix,
+        text_auto='.2f',
+        aspect="auto",
+        color_continuous_scale="RdBu", # Rouge à Bleu (ou Red-Green si custom)
+        color_continuous_midpoint=0
+    )
+    fig_heat.update_layout(
+        template="plotly_dark" if dark_mode else "plotly_white",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        xaxis_title=None,
+        yaxis_title=None,
+        margin=dict(l=0, r=0, t=30, b=0)
+    )
+    st.plotly_chart(fig_heat, use_container_width=True)
