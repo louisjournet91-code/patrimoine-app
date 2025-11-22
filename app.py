@@ -290,3 +290,39 @@ if not df_hist.empty:
         xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=0, t=30, b=0)
     )
     st.plotly_chart(fig_heat, use_container_width=True)
+
+    # --- ANALYSE DE CORRÉLATION ---
+st.markdown("---")
+st.markdown("<div class='section-header'>🔗 Corrélation (Moi vs Marché)</div>", unsafe_allow_html=True)
+
+if not df_hist.empty:
+    # On prépare deux séries temporelles propres
+    s_moi = df_hist['PF_Return_TWR'].apply(clean_pct)
+    s_ese = df_hist['ESE_Return'].apply(clean_pct)
+    
+    # Création d'un DataFrame conjoint
+    df_corr = pd.DataFrame({"Mon Portefeuille": s_moi, "S&P 500 (ESE)": s_ese})
+    
+    # Calcul de la corrélation (Rolling Window 30 jours pour voir l'évolution)
+    rolling_corr = df_corr['Mon Portefeuille'].rolling(window=30).corr(df_corr['S&P 500 (ESE)'])
+    
+    # Graphique
+    fig_corr = px.line(x=df_hist['Date'], y=rolling_corr)
+    fig_corr.update_traces(line_color="#f59e0b", name="Corrélation (30j)") # Couleur Ambre
+    fig_corr.add_hline(y=1, line_dash="dot", annotation_text="Corrélation Parfaite", annotation_position="bottom right")
+    fig_corr.add_hline(y=0, line_dash="dot", annotation_text="Décorrelé", annotation_position="bottom right")
+    
+    fig_corr.update_layout(
+        title="Évolution de la corrélation avec le S&P 500 (Glissant 30j)",
+        yaxis_title="Coefficient (-1 à 1)",
+        xaxis_title=None,
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=300
+    )
+    st.plotly_chart(fig_corr, use_container_width=True)
+    
+    curr_corr = df_corr.corr().iloc[0, 1]
+    st.info(f"🔗 **Corrélation Globale : {curr_corr:.2f}**. " + 
+            ("Vous suivez le marché." if curr_corr > 0.7 else "Votre portefeuille est bien diversifié/décorrelé du S&P500."))
