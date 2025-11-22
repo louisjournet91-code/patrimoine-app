@@ -270,6 +270,26 @@ if not df_m.empty:
     for i, row in df_m.iterrows():
         with cols[i]:
             st.metric(row['Indice'], f"{row['Prix']:.2f}", f"{row['24h %']:+.2f}%")
+# ... après le calcul des dataframes ...
+
+# Création du Donut Chart
+fig_alloc = px.pie(
+    df_pf, 
+    values='Valo', 
+    names='Nom', 
+    title='Répartition des Actifs',
+    hole=0.6, # Effet Donut
+    color_discrete_sequence=px.colors.qualitative.Pastel if not dark_mode else px.colors.qualitative.Bold
+)
+fig_alloc.update_layout(
+    template="plotly_dark" if dark_mode else "simple_white",
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
+    showlegend=True,
+    legend=dict(orientation="v", y=0.5, x=1.05, xanchor="left", yanchor="center")
+)
+# Affichage dans une colonne dédiée ou au-dessus du tableau
+st.plotly_chart(fig_alloc, use_container_width=True)
 
 # --- DETAIL ---
 st.markdown("---")
