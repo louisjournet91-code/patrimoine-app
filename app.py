@@ -309,15 +309,23 @@ fig_alloc = px.pie(
     color_discrete_sequence=px.colors.qualitative.Pastel if not dark_mode else px.colors.qualitative.Bold
 )
 
-# --- CORRECTION ICI ---
+# ... (Création de fig_alloc avec px.pie inchangée) ...
+
 fig_alloc.update_layout(
-    # J'utilise plotly_white par sécurité, c'est le standard opposé à plotly_dark
     template="plotly_dark" if dark_mode else "plotly_white",
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)',
     showlegend=True,
-    # Correction: yanchor="middle" au lieu de "center"
-    legend=dict(orientation="v", y=0.5, x=1.05, xanchor="left", yanchor="middle")
+    # 1. On ancre la légende
+    legend=dict(
+        orientation="v", 
+        y=0.5, 
+        x=1.02, # Juste un tout petit peu décalé du cercle
+        xanchor="left", 
+        yanchor="middle"
+    ),
+    # 2. LA CLÉ EST ICI : On force une marge à droite (r=160)
+    margin=dict(t=30, b=30, l=20, r=160) 
 )
 
 st.plotly_chart(fig_alloc, use_container_width=True)
