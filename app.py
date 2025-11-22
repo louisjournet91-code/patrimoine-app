@@ -229,6 +229,31 @@ c3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 st.markdown("---")
 st.markdown("<div class='section-header'>📊 Analyse & Marché</div>", unsafe_allow_html=True)
 
+if not df_hist.empty:
+    # Calcul du Plus Haut Historique (All-Time High)
+    max_histo = df_hist['Total'].max()
+    
+    # Le Drawdown est la distance actuelle par rapport à ce sommet
+    # Formule : (Valeur Actuelle - Sommet) / Sommet
+    drawdown = ((TOTAL_ACTUEL - max_histo) / max_histo) * 100
+    
+    # Affichage conditionnel élégant
+    col_dd1, col_dd2 = st.columns([1, 3])
+    
+    with col_dd1:
+        # On affiche le Drawdown en rouge s'il est significatif, sinon en vert (proche du sommet)
+        color_dd = "off" if drawdown > -1 else "inverse" 
+        st.metric("Drawdown (Depuis Sommet)", f"{drawdown:.2f} %", delta_color="off")
+        st.caption(f"Plus Haut Historique : {max_histo:,.0f} €")
+    
+    with col_dd2:
+        if drawdown > -5:
+             st.info("💎 **Solidité :** Votre portefeuille est proche de son sommet historique.")
+        elif drawdown > -15:
+             st.warning("⚠️ **Correction :** Le marché respire. Opportunité de renforcement ?")
+        else:
+             st.error("🚨 **Bear Market :** Zone d'achat agressive pour le long terme.")
+
 if not df_hist.empty and len(df_hist) > 1:
     c1, c2 = st.columns(2)
     with c1:
