@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import os
+import textwrap
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Tableau de Bord", layout="wide", page_icon="💎")
@@ -335,6 +336,8 @@ st.plotly_chart(fig_alloc, use_container_width=True)
 # --- DETAIL ---
 # ... (Code précédent inchangé) ...
 
+# ... (Le code précédent reste inchangé)
+
 # --- DETAIL (STYLE BENTO) ---
 st.markdown("---")
 st.markdown("<div class='section-header'>📋 Détail des Actifs</div>", unsafe_allow_html=True)
@@ -342,8 +345,6 @@ st.markdown("<div class='section-header'>📋 Détail des Actifs</div>", unsafe_
 if not df_pf.empty:
     # Configuration de la grille (3 cartes par ligne)
     COLS = 3
-    
-    # On découpe le dataframe en "morceaux" de 3 actifs pour gérer les lignes
     rows = [df_pf.iloc[i:i + COLS] for i in range(0, len(df_pf), COLS)]
 
     for row_data in rows:
@@ -351,23 +352,24 @@ if not df_pf.empty:
         
         for i, (index, asset) in enumerate(row_data.iterrows()):
             with cols[i]:
-                # Logique de couleur (Vert pour gain, Rouge pour perte)
+                # Logique de couleur
                 color_perf = "#10b981" if asset['Perf_%'] >= 0 else "#ef4444"
                 bg_perf = "rgba(16, 185, 129, 0.15)" if asset['Perf_%'] >= 0 else "rgba(239, 68, 68, 0.15)"
                 arrow = "▲" if asset['Perf_%'] >= 0 else "▼"
                 
-                # Construction de la "Carte Bento" en HTML/CSS pur
-                st.markdown(f"""
+                # Construction du HTML
+                # NOTE : textwrap.dedent va supprimer l'indentation qui causait le bug d'affichage
+                html_card = f"""
                 <div style="
                     background-color: {card_bg};
                     border: 1px solid {border_color};
                     border-radius: 20px;
                     padding: 20px;
-                    height: 100%;
+                    margin-bottom: 20px;
                     transition: transform 0.2s;
                 ">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <span style="font-weight: 700; font-size: 1.1rem; color: {text_color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <span style="font-weight: 700; font-size: 1.1rem; color: {text_color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;">
                             {asset['Nom']}
                         </span>
                         <span style="
@@ -381,14 +383,15 @@ if not df_pf.empty:
                         </span>
                     </div>
                     
-                    <div style="margin-bottom: 10px;">
+                    <div style="margin-bottom: 15px;">
                         <div style="font-size: 0.85rem; opacity: 0.6; color: {text_color};">Valorisation</div>
                         <div style="
                             font-size: 1.8rem; 
                             font-weight: 800; 
                             background: {metric_gradient}; 
                             -webkit-background-clip: text; 
-                            -webkit-text-fill-color: transparent;">
+                            -webkit-text-fill-color: transparent;
+                            color: {text_color};">
                             {asset['Valo']:,.2f} €
                         </div>
                     </div>
@@ -403,18 +406,17 @@ if not df_pf.empty:
                     ">
                         <div style="display: flex; flex-direction: column;">
                             <span style="opacity: 0.5; font-size: 0.75rem;">Quantité</span>
-                            <span>{asset['Quantité']:.4f}</span>
+                            <span style="font-weight: 500;">{asset['Quantité']:.4f}</span>
                         </div>
                         <div style="display: flex; flex-direction: column; text-align: right;">
                             <span style="opacity: 0.5; font-size: 0.75rem;">Prix Actuel</span>
-                            <span>{asset['Prix_Actuel']:.2f} €</span>
+                            <span style="font-weight: 500;">{asset['Prix_Actuel']:.2f} €</span>
                         </div>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
-        
-        # Un petit espace entre les rangées de cartes
-        st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+                """
+                
+                st.markdown(textwrap.dedent(html_card), unsafe_allow_html=True)
 
 else:
     st.info("Aucun actif à afficher.")
