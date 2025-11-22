@@ -420,7 +420,8 @@ if not df_hist.empty:
     
     # Pivot Table par Année/Mois
     # Note: C'est une approximation, pour être précis il faudrait le NAV de fin de mois vs début de mois
-    monthly_returns = df_matrix.groupby(['Year', 'Month'])['Daily_Return'].sum() * 100 # Somme simple pour approximer
+    # Calcul "Compound" pour une précision exacte
+    monthly_returns = df_matrix.groupby(['Year', 'Month'])['Daily_Return'].apply(lambda x: (1 + x).prod() - 1) * 100 
     
     matrix = monthly_returns.unstack(level=1).fillna(0)
     
