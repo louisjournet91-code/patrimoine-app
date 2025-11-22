@@ -247,11 +247,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-c1, c2, c3, c4 = st.columns(3)
-c1.metric("Liquidité", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc." if TOTAL_ACTUEL > 0 else "0%")
-c2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%" if (TOTAL_ACTUEL-PV_TOTALE)!=0 else "0%")
-c3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
-
 # Calcul Volatilité (Annualisée)
 # On reprend le nettoyage des pourcentages
 def clean_pct_metric(x):
@@ -264,8 +259,10 @@ if not df_hist.empty:
 else:
     volatility = 0.0
 
-# ... (Vos metrics existantes) ...
-# Ajoutez une 4ème colonne ou remplacez-en une :
+c1, c2, c3, c4 = st.columns(3)
+c1.metric("Liquidité", f"{CASH_DISPO:,.2f} €", f"{(CASH_DISPO/TOTAL_ACTUEL)*100:.1f}% Alloc." if TOTAL_ACTUEL > 0 else "0%")
+c2.metric("Plus-Value Latente", f"{PV_TOTALE:+,.2f} €", f"{(PV_TOTALE/(TOTAL_ACTUEL-PV_TOTALE))*100:.2f}%" if (TOTAL_ACTUEL-PV_TOTALE)!=0 else "0%")
+c3.metric("CAGR (Annuel)", f"{cagr_val:.2f} %", f"Depuis {DATE_DEBUT.year}")
 c4.metric("Volatilité", f"{volatility:.2f} %", "Risque Annualisé")
 
 # --- GRAPHIQUES ---
