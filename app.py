@@ -19,38 +19,53 @@ CHART_LINE_COLOR = "#38bdf8"
 CHART_FILL_COLOR = "rgba(56, 189, 248, 0.15)"
 METRIC_GRADIENT = "linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)"
 
+# ... (Début du fichier inchangé)
+
 # Injection du CSS
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap');
+    
+    /* --- MODIFICATION ICI : FOND DÉGRADÉ --- */
     .stApp {{ 
-        background-color: {BG_COLOR}; 
+        /* Dégradé "Midnight Executive" : Noir > Bleu Nuit > Indigo */
+        background: linear-gradient(145deg, #020617 0%, #0f172a 50%, #1e1b4b 100%);
+        background-attachment: fixed; /* Le fond reste fixe lors du scroll */
         color: {TEXT_COLOR}; 
         font-family: 'Outfit', sans-serif; 
     }}
+    /* --------------------------------------- */
+
     h1, h2, h3, p, span, div {{ color: {TEXT_COLOR}; }}
     div[data-testid="stMetricLabel"] {{ color: #94a3b8 !important; }}
     
-    /* Styles des cartes et graphiques */
+    /* Styles des cartes et graphiques (Transparence augmentée pour voir le dégradé) */
     div[data-testid="stMetric"], div.stPlotlyChart, div.stExpander {{
-        background: {CARD_BG} !important;
-        backdrop-filter: blur(15px);
+        background: rgba(30, 41, 59, 0.4) !important; /* Plus translucide */
+        backdrop-filter: blur(20px); /* Flou plus prononcé */
         border-radius: 24px;
-        border: 1px solid {BORDER_COLOR};
+        border: 1px solid rgba(255, 255, 255, 0.08); /* Bordure plus subtile */
         padding: 24px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); /* Ombre portée pour le relief */
     }}
+    
     div[data-testid="stDataFrame"] {{ background: transparent !important; border: none !important; }}
+    
     div[data-testid="stMetricValue"] {{
         font-size: 32px; font-weight: 800;
         background: {METRIC_GRADIENT};
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }}
+    
     .section-header {{
         margin-top: 40px; margin-bottom: 20px; font-size: 24px; font-weight: 700;
         border-bottom: 2px solid {BORDER_COLOR}; padding-bottom: 10px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3); /* Légère ombre sur les titres */
     }}
 </style>
 """, unsafe_allow_html=True)
+
+# ... (Le reste du fichier reste inchangé)
 
 # --- 2. EXÉCUTION (VIA UTILS) ---
 
