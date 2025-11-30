@@ -10,8 +10,7 @@ FILE_HISTORY = 'historique.csv'
 # --- FONCTIONS DE DONNÉES ---
 
 def load_data():
-    """Charge les données avec sécurité."""
-    # 1. Portefeuille
+    """Charge le portefeuille et l'historique."""
     if os.path.exists(FILE_PORTFOLIO):
         try:
             df_pf = pd.read_csv(FILE_PORTFOLIO, sep=',', dtype=str)
@@ -21,7 +20,6 @@ def load_data():
     else:
         df_pf = pd.DataFrame()
 
-    # Nettoyage
     def clean_float(x):
         if pd.isna(x): return 0.0
         return float(str(x).replace(',', '.').replace('€', '').replace(' ', '').replace('%', ''))
@@ -30,28 +28,23 @@ def load_data():
         for c in ['Quantité', 'PRU']:
             if c in df_pf.columns: df_pf[c] = df_pf[c].apply(clean_float)
 
-    # 2. Historique
     df_h = pd.DataFrame()
     if os.path.exists(FILE_HISTORY):
         try:
             df_h = pd.read_csv(FILE_HISTORY, sep=';', on_bad_lines='skip', engine='python')
             df_h['Date'] = pd.to_datetime(df_h['Date'], dayfirst=True, errors='coerce')
             df_h = df_h.dropna(subset=['Date']).sort_values('Date')
-            
             for col in ['Total', 'PF_Index100', 'ESE_Index100']:
-                if col in df_h.columns:
-                    df_h[col] = df_h[col].apply(clean_float)
-        except Exception as e:
-            st.error(f"Erreur lecture historique: {e}")
+                if col in df_h.columns: df_h[col] = df_h[col].apply(clean_float)
+        except: pass
             
     return df_pf, df_h
 
 @st.cache_data(ttl=300)
 def get_live_prices(tickers):
     """
-    Récupère les prix.
-    Stratégie : Tente le téléchargement de groupe (Rapide).
-    En cas d'échec, bascule sur la méthode unitaire (Fiable & Testée).
+    Récupère les prix UN PAR UN (Méthode Chirurgicale).
+    C'est plus lent, mais c'est la seule méthode certifiée fonctionnelle sur votre serveur.
     """
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
     real_ticks = [t for t in tickers if t != "CASH" and isinstance(t, str)]
@@ -59,50 +52,37 @@ def get_live_prices(tickers):
     if not real_ticks:
         return prices
 
-    # --- MÉTHODE 1 : GROUPE (Rapide) ---
-    success_bulk = False
-    try:
-        # On laisse yfinance gérer la session (curl_cffi fera le travail en coulisse)
-        data = yf.download(tickers=real_ticks, period="5d", progress=False, group_by='ticker', threads=True)
-        
-        # Si on reçoit des données valides, on traite
-        if not data.empty:
-            for t in real_ticks:
-                try:
-                    # Gestion du format MultiIndex ou Simple de yfinance
-                    df_t = data[t] if len(real_ticks) > 1 and t in data else data
-                    
-                    if not df_t.empty and 'Close' in df_t.columns:
-                        vals = df_t['Close'].dropna()
-                        if not vals.empty:
-                            cur = float(vals.iloc[-1])
-                            prev = float(vals.iloc[-2]) if len(vals) > 1 else cur
-                            prices[t] = {"cur": cur, "prev": prev}
-                            success_bulk = True
-                except: pass
-    except Exception as e:
-        print(f"⚠️ Bulk download failed, switching to surgical mode: {e}")
-
-    # --- MÉTHODE 2 : CHIRURGICALE (La méthode qui a marché dans votre test) ---
-    # On ne lance ceci que pour les tickers qui ont échoué ou si le bulk a planté
+    # On utilise une barre de progression discrète si besoin, ou on itère simplement
+    print(f"--- 🔄 ACTUALISATION DES PRIX ({len(real_ticks)} actifs) ---")
+    
     for t in real_ticks:
-        if t not in prices or prices[t]['cur'] == 0.0:
-            try:
-                # C'est exactement la commande que vous avez tapée dans le terminal
-                hist = yf.Ticker(t).history(period="5d")
-                if not hist.empty:
-                    cur = float(hist['Close'].iloc[-1])
-                    prev = float(hist['Close'].iloc[-2]) if len(hist) > 1 else cur
-                    prices[t] = {"cur": cur, "prev": prev}
-            except Exception:
-                # Si vraiment tout échoue (ex: ticker invalide)
+        try:
+            # C'est LA commande exacte qui a marché dans votre test terminal
+            print(f"   📡 Récupération de {t}...")
+            tick_obj = yf.Ticker(t)
+            hist = tick_obj.history(period="5d")
+            
+            if not hist.empty:
+                # On prend la dernière valeur de clôture
+                cur = float(hist['Close'].iloc[-1])
+                # Et l'avant-dernière pour la variation (si dispo)
+                prev = float(hist['Close'].iloc[-2]) if len(hist) > 1 else cur
+                
+                prices[t] = {"cur": cur, "prev": prev}
+                print(f"      ✅ OK : {cur:.2f} €")
+            else:
+                print(f"      ⚠️ Vide pour {t}")
                 prices[t] = {"cur": 0.0, "prev": 0.0}
+
+        except Exception as e:
+            print(f"      ❌ Erreur sur {t} : {e}")
+            prices[t] = {"cur": 0.0, "prev": 0.0}
 
     return prices
 
 @st.cache_data(ttl=3600)
 def get_market_indices():
-    """Récupère les indices de marché."""
+    """Récupère les indices de marché (aussi en mode unitaire)."""
     targets = {"S&P 500": "^GSPC", "CAC 40": "^FCHI", "Bitcoin": "BTC-EUR", "VIX": "^VIX"}
     res = []
     
