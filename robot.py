@@ -1,20 +1,18 @@
 import pandas as pd
 import yfinance as yf
+import requests
 from datetime import datetime
 import os
 import warnings
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION & STANDARDS ---
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 FILE_PORTFOLIO = 'portefeuille.csv'
 FILE_HISTORY = 'historique.csv'
 
-HIST_COLS = [
-    "Date", "Total", "PEA", "BTC", "Plus-value", "Delta", "PV du Jour", 
-    "ESE", "Flux (€)", "PF_Return_TWR", "ESE_Return", 
-    "PF_Index100", "ESE_Index100", "PF_Index100.1", "ESE_Index100.1"
-]
+# User-Agent "Premium" pour passer les barrières de Yahoo (Mimique Chrome sur Windows)
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 print(f"\n--- 💎 ROBOT ULTIMATE ESTATE : {datetime.now().strftime('%d/%m/%Y %H:%M')} ---")
 
@@ -32,43 +30,78 @@ try:
     print(f"✅ Portefeuille chargé : {len(df)} lignes.")
 
 except Exception as e:
-    print(f"❌ ERREUR FATALE lecture portefeuille : {e}")
+    print(f"❌ ERREUR CRITIQUE lecture portefeuille : {e}")
     exit()
 
-# --- 3. RECUPERATION ROBUSTE DES PRIX ---
-real_tickers = [t for t in df['Ticker'].unique() if t != "CASH"]
+# --- 3. RÉCUPÉRATION BLINDÉE DES PRIX (STRATÉGIE BULK) ---
+real_tickers = [t for t in df['Ticker'].unique() if t != "CASH" and pd.notna(t)]
 prices = {"CASH": 1.0}
 
-print(f"📡 Connexion Yahoo Finance pour {len(real_tickers)} actifs...")
+print(f"📡 Connexion Sécurisée Yahoo Finance pour {len(real_tickers)} actifs...")
 
-for t in real_tickers:
+if real_tickers:
     try:
-        # On cherche sur 1 mois pour éviter les trous de cotation (fériés, etc.)
-        tick_obj = yf.Ticker(t)
-        hist = tick_obj.history(period="1mo")
-        
-        if not hist.empty:
-            prices[t] = float(hist['Close'].iloc[-1])
-            print(f"   ✅ {t} : {prices[t]:.2f} €")
-        else:
-            # Tentative de secours
-            data = yf.download(t, period="5d", progress=False)
-            if not data.empty:
-                vals = data['Close']
-                val = vals.iloc[-1] if hasattr(vals, 'iloc') else vals
-                prices[t] = float(val)
-                print(f"   ⚠️ {t} (Download) : {prices[t]:.2f} €")
-            else:
-                print(f"   ❌ PRIX INTROUVABLE pour {t}. Utilisation PRU par sécurité.")
-                prices[t] = 0.0 
-    except Exception as e:
-        print(f"   ❌ Erreur API sur {t}: {e}")
-        prices[t] = 0.0
+        # Configuration de la session pour masquer le robot
+        session = requests.Session()
+        session.headers.update({'User-Agent': USER_AGENT})
 
-# Application des prix (Fallback PRU si 0.0)
-df['Prix_Actuel'] = df.apply(lambda x: prices.get(x['Ticker'], 0.0), axis=1)
-# Si prix = 0, on prend le PRU pour ne pas casser la valorisation totale
-df['Prix_Actuel'] = df.apply(lambda x: x['PRU'] if x['Prix_Actuel'] <= 0 and x['Ticker'] != "CASH" else x['Prix_Actuel'], axis=1)
+        # Téléchargement GROUPÉ (Moins suspect pour l'API et plus rapide)
+        # On prend 5 jours pour être sûr d'avoir la dernière clôture
+        print(f"   ... Téléchargement groupé en cours ...")
+        
+        # Astuce: group_by='ticker' permet de structurer les données proprement
+        data = yf.download(
+            tickers=real_tickers, 
+            period="5d", 
+            session=session, 
+            progress=False, 
+            group_by='ticker',
+            threads=True
+        )
+
+        for t in real_tickers:
+            price_found = 0.0
+            try:
+                # Extraction spécifique selon la structure retournée par yfinance (parfois MultiIndex, parfois simple)
+                if len(real_tickers) > 1:
+                    ticker_data = data[t]
+                else:
+                    ticker_data = data # Si un seul ticker, pas de niveau supérieur
+
+                # On cherche la dernière valeur de Clôture ('Close') non nulle
+                if not ticker_data.empty and 'Close' in ticker_data.columns:
+                    last_valid = ticker_data['Close'].dropna().iloc[-1]
+                    price_found = float(last_valid)
+                
+                # Check spécifique pour rassurer Monsieur
+                if t == "ESE.PA":
+                    if price_found > 10: # Le prix devrait être ~29€
+                        print(f"   💎 ESE.PA (S&P 500) : {price_found:.2f} € (SUCCÈS)")
+                    else:
+                        print(f"   ⚠️ ESE.PA : Prix suspect ou nul ({price_found})")
+
+                if price_found > 0:
+                    prices[t] = price_found
+                else:
+                    print(f"   ⚠️ Pas de données récentes pour {t}")
+
+            except Exception as e:
+                print(f"   ❌ Erreur extraction {t}: {e}")
+
+    except Exception as e:
+        print(f"❌ Échec global du téléchargement Yahoo : {e}")
+
+# Application des prix (Fallback PRU si toujours 0.0)
+def get_price_final(row):
+    t = row['Ticker']
+    p = prices.get(t, 0.0)
+    # Si le prix est 0 (échec), on utilise le PRU pour ne pas casser le total
+    if p <= 0 and t != "CASH":
+        print(f"   🛡️ Utilisation PRU pour {t} ({row['PRU']} €)")
+        return row['PRU']
+    return p
+
+df['Prix_Actuel'] = df.apply(get_price_final, axis=1)
 
 # --- 4. CALCULS DE RICHESSE ---
 df['Valo'] = df['Quantité'] * df['Prix_Actuel']
@@ -77,24 +110,25 @@ val_btc = df[df['Ticker'].str.contains("BTC", na=False)]['Valo'].sum()
 val_pea = total_pf - val_btc
 total_pv = total_pf - (df['Quantité'] * df['PRU']).sum()
 
-ese_price = prices.get("ESE.PA", 0.0)
-if ese_price == 0: ese_price = df.loc[df['Ticker']=="ESE.PA", "PRU"].values[0] if not df.loc[df['Ticker']=="ESE.PA"].empty else 0
+# Récupération propre du prix ESE pour l'historique
+ese_row = df[df['Ticker'] == "ESE.PA"]
+ese_price = ese_row['Prix_Actuel'].values[0] if not ese_row.empty else 0.0
 
 print(f"💰 VALORISATION TOTALE : {total_pf:,.2f} €")
 
-# --- 5. SAUVEGARDE HISTORIQUE ---
+# --- 5. SAUVEGARDE HISTORIQUE (Inchangé) ---
 today_str = datetime.now().strftime("%d/%m/%Y")
 
 if os.path.exists(FILE_HISTORY):
     try:
         df_hist = pd.read_csv(FILE_HISTORY, sep=';')
     except:
-        df_hist = pd.DataFrame(columns=HIST_COLS)
+        df_hist = pd.DataFrame() # Re-création si corrompu
 else:
-    df_hist = pd.DataFrame(columns=HIST_COLS)
+    df_hist = pd.DataFrame()
 
 # Suppression doublon du jour
-if not df_hist.empty:
+if not df_hist.empty and 'Date' in df_hist.columns:
     df_hist = df_hist[df_hist['Date'] != today_str]
 
 # Calculs Variation vs J-1
@@ -143,5 +177,6 @@ new_row = {
 }
 
 df_final = pd.concat([df_hist, pd.DataFrame([new_row])], ignore_index=True)
+# Encodage utf-8-sig pour compatibilité Excel
 df_final.to_csv(FILE_HISTORY, sep=';', index=False, encoding='utf-8-sig')
-print(f"✅ SUCCÈS : Patrimoine sauvegardé.")
+print(f"✅ SUCCÈS : Patrimoine sauvegardé avec ESE à {ese_price:.2f} €.")
