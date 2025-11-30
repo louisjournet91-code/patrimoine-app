@@ -1,11 +1,15 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
+import requests
 import os
 
 # --- CONSTANTES ---
 FILE_PORTFOLIO = 'portefeuille.csv'
 FILE_HISTORY = 'historique.csv'
+
+# Signature "Premium" pour contourner le blocage Yahoo
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 # --- FONCTIONS DE DONNÉES ---
 
@@ -48,54 +52,74 @@ def load_data():
 
 @st.cache_data(ttl=300)
 def get_live_prices(tickers):
-    """Récupère les prix actuels avec une stratégie robuste."""
+    """
+    Récupère les prix actuels avec une stratégie 'Commando'.
+    Utilise une session persistante et un User-Agent pour éviter le blocage 403.
+    """
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
     real_ticks = [t for t in tickers if t != "CASH" and isinstance(t, str)]
     
-    for t in real_ticks:
-        try:
-            # STRATÉGIE 1 : HISTORY (Standard)
-            # On demande 1 mois (1mo) au lieu de 5 jours (5d) pour éviter les trous de cotation
-            tick_obj = yf.Ticker(t)
-            hist = tick_obj.history(period="1mo")
-            
-            if not hist.empty:
-                cur = float(hist['Close'].iloc[-1])
-                prev = float(hist['Close'].iloc[-2]) if len(hist) > 1 else cur
-                prices[t] = {"cur": cur, "prev": prev}
-            
-            else:
-                # STRATÉGIE 2 : DOWNLOAD (Secours)
-                # Parfois nécessaire pour certains tickers spécifiques
-                data = yf.download(t, period="5d", progress=False)
-                
-                if not data.empty:
-                    # Gestion des formats de retour complexes de yfinance (MultiIndex)
-                    vals = data['Close']
-                    if isinstance(vals, pd.DataFrame): 
-                        vals = vals.iloc[:, 0] # On prend la première colonne
-                    
-                    cur = float(vals.iloc[-1])
-                    prev = float(vals.iloc[-2]) if len(vals) > 1 else cur
-                    prices[t] = {"cur": cur, "prev": prev}
-                else:
-                    # ECHEC TOTAL : On met 0.0 (le PRU prendra le relais dans app.py pour éviter le crash)
-                    prices[t] = {"cur": 0.0, "prev": 0.0}
+    if not real_ticks:
+        return prices
 
-        except Exception:
-            # En cas d'erreur réseau ou autre
+    # Création d'une session camouflée
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+
+    try:
+        # STRATÉGIE BULK (Plus rapide et moins suspecte)
+        data = yf.download(
+            tickers=real_ticks, 
+            period="5d", 
+            session=session, 
+            progress=False, 
+            group_by='ticker',
+            threads=True
+        )
+        
+        for t in real_ticks:
+            try:
+                # Extraction des données
+                if len(real_ticks) > 1:
+                    df_t = data[t]
+                else:
+                    df_t = data # Si un seul ticker
+                
+                # Vérification si on a des données 'Close'
+                if not df_t.empty and 'Close' in df_t.columns:
+                    vals = df_t['Close'].dropna()
+                    if not vals.empty:
+                        cur = float(vals.iloc[-1])
+                        prev = float(vals.iloc[-2]) if len(vals) > 1 else cur
+                        prices[t] = {"cur": cur, "prev": prev}
+                        continue # Succès, on passe au suivant
+
+                # Si échec ou vide, on met 0.0 (le PRU prendra le relais dans app.py)
+                prices[t] = {"cur": 0.0, "prev": 0.0}
+
+            except Exception:
+                prices[t] = {"cur": 0.0, "prev": 0.0}
+
+    except Exception as e:
+        st.warning(f"Mode dégradé activé (Yahoo a bloqué la requête groupée) : {e}")
+        # Fallback désespéré : boucle individuelle
+        for t in real_ticks:
             prices[t] = {"cur": 0.0, "prev": 0.0}
             
     return prices
 
 @st.cache_data(ttl=3600)
 def get_market_indices():
-    """Récupère les indices de marché pour comparaison."""
+    """Récupère les indices de marché avec la session sécurisée."""
     targets = {"S&P 500": "^GSPC", "CAC 40": "^FCHI", "Bitcoin": "BTC-EUR", "VIX": "^VIX"}
     res = []
+    
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+
     for name, tick in targets.items():
         try:
-            h = yf.Ticker(tick).history(period="5d")
+            h = yf.Ticker(tick, session=session).history(period="5d")
             if not h.empty:
                 cur = float(h['Close'].iloc[-1])
                 prev = float(h['Close'].iloc[-2]) if len(h)>1 else cur
