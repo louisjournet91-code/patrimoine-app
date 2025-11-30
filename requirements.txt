@@ -4,3 +4,4 @@ yfinance
 plotly
 lxml
 openpyxl
+curl_cffi
