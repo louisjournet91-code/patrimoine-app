@@ -10,7 +10,7 @@ FILE_HISTORY = 'historique.csv'
 # --- FONCTIONS DE DONNÉES ---
 
 def load_data():
-    """Charge le portefeuille et l'historique avec gestion d'erreurs."""
+    """Charge les données avec sécurité."""
     # 1. Portefeuille
     if os.path.exists(FILE_PORTFOLIO):
         try:
@@ -21,7 +21,7 @@ def load_data():
     else:
         df_pf = pd.DataFrame()
 
-    # Nettoyage Portefeuille
+    # Nettoyage
     def clean_float(x):
         if pd.isna(x): return 0.0
         return float(str(x).replace(',', '.').replace('€', '').replace(' ', '').replace('%', ''))
@@ -49,8 +49,9 @@ def load_data():
 @st.cache_data(ttl=300)
 def get_live_prices(tickers):
     """
-    Récupère les prix actuels.
-    Laisse yfinance utiliser curl_cffi en interne pour contourner les protections.
+    Récupère les prix.
+    Stratégie : Tente le téléchargement de groupe (Rapide).
+    En cas d'échec, bascule sur la méthode unitaire (Fiable & Testée).
     """
     prices = {"CASH": {"cur": 1.0, "prev": 1.0}}
     real_ticks = [t for t in tickers if t != "CASH" and isinstance(t, str)]
@@ -58,44 +59,45 @@ def get_live_prices(tickers):
     if not real_ticks:
         return prices
 
+    # --- MÉTHODE 1 : GROUPE (Rapide) ---
+    success_bulk = False
     try:
-        # STRATÉGIE BULK (Sans session manuelle, on laisse YF gérer)
-        data = yf.download(
-            tickers=real_ticks, 
-            period="5d", 
-            progress=False, 
-            group_by='ticker',
-            threads=True
-        )
+        # On laisse yfinance gérer la session (curl_cffi fera le travail en coulisse)
+        data = yf.download(tickers=real_ticks, period="5d", progress=False, group_by='ticker', threads=True)
         
-        for t in real_ticks:
-            try:
-                # Extraction des données
-                if len(real_ticks) > 1:
-                    df_t = data[t] if t in data else pd.DataFrame()
-                else:
-                    df_t = data # Si un seul ticker
-                
-                # Vérification si on a des données 'Close'
-                if not df_t.empty and 'Close' in df_t.columns:
-                    vals = df_t['Close'].dropna()
-                    if not vals.empty:
-                        cur = float(vals.iloc[-1])
-                        prev = float(vals.iloc[-2]) if len(vals) > 1 else cur
-                        prices[t] = {"cur": cur, "prev": prev}
-                        continue # Succès
-
-                # Si échec
-                prices[t] = {"cur": 0.0, "prev": 0.0}
-
-            except Exception:
-                prices[t] = {"cur": 0.0, "prev": 0.0}
-
+        # Si on reçoit des données valides, on traite
+        if not data.empty:
+            for t in real_ticks:
+                try:
+                    # Gestion du format MultiIndex ou Simple de yfinance
+                    df_t = data[t] if len(real_ticks) > 1 and t in data else data
+                    
+                    if not df_t.empty and 'Close' in df_t.columns:
+                        vals = df_t['Close'].dropna()
+                        if not vals.empty:
+                            cur = float(vals.iloc[-1])
+                            prev = float(vals.iloc[-2]) if len(vals) > 1 else cur
+                            prices[t] = {"cur": cur, "prev": prev}
+                            success_bulk = True
+                except: pass
     except Exception as e:
-        st.warning(f"Erreur Yahoo : {e}")
-        for t in real_ticks:
-            prices[t] = {"cur": 0.0, "prev": 0.0}
-            
+        print(f"⚠️ Bulk download failed, switching to surgical mode: {e}")
+
+    # --- MÉTHODE 2 : CHIRURGICALE (La méthode qui a marché dans votre test) ---
+    # On ne lance ceci que pour les tickers qui ont échoué ou si le bulk a planté
+    for t in real_ticks:
+        if t not in prices or prices[t]['cur'] == 0.0:
+            try:
+                # C'est exactement la commande que vous avez tapée dans le terminal
+                hist = yf.Ticker(t).history(period="5d")
+                if not hist.empty:
+                    cur = float(hist['Close'].iloc[-1])
+                    prev = float(hist['Close'].iloc[-2]) if len(hist) > 1 else cur
+                    prices[t] = {"cur": cur, "prev": prev}
+            except Exception:
+                # Si vraiment tout échoue (ex: ticker invalide)
+                prices[t] = {"cur": 0.0, "prev": 0.0}
+
     return prices
 
 @st.cache_data(ttl=3600)
@@ -116,9 +118,7 @@ def get_market_indices():
     return pd.DataFrame(res)
 
 # --- FONCTIONS UI (BENTO) ---
-
 def create_bento_card(asset, card_bg, border_color, text_color, metric_gradient):
-    """Génère le HTML pour une carte Bento."""
     color_perf = "#10b981" if asset['Perf_%'] >= 0 else "#ef4444"
     bg_perf = "rgba(16, 185, 129, 0.15)" if asset['Perf_%'] >= 0 else "rgba(239, 68, 68, 0.15)"
     arrow = "▲" if asset['Perf_%'] >= 0 else "▼"
