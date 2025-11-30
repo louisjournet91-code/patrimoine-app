@@ -3,6 +3,7 @@ import yfinance as yf
 from datetime import datetime
 import os
 import warnings
+import time
 
 # --- 1. CONFIGURATION ---
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -29,48 +30,33 @@ except Exception as e:
     print(f"❌ ERREUR CRITIQUE lecture portefeuille : {e}")
     exit()
 
-# --- 3. RÉCUPÉRATION PRIX (Optimisée curl_cffi) ---
+# --- 3. RÉCUPÉRATION CHIRURGICALE DES PRIX (Méthode Validée) ---
 real_tickers = [t for t in df['Ticker'].unique() if t != "CASH" and pd.notna(t)]
 prices = {"CASH": 1.0}
 
-print(f"📡 Connexion Yahoo Finance pour {len(real_tickers)} actifs...")
+print(f"📡 Connexion Yahoo Finance (Mode Chirurgical) pour {len(real_tickers)} actifs...")
 
-if real_tickers:
+for t in real_tickers:
     try:
-        # Téléchargement GROUPÉ sans session manuelle
-        data = yf.download(
-            tickers=real_tickers, 
-            period="5d", 
-            progress=False, 
-            group_by='ticker',
-            threads=True
-        )
-
-        for t in real_tickers:
-            price_found = 0.0
-            try:
-                if len(real_tickers) > 1:
-                    ticker_data = data[t] if t in data else pd.DataFrame()
-                else:
-                    ticker_data = data
-
-                if not ticker_data.empty and 'Close' in ticker_data.columns:
-                    last_valid = ticker_data['Close'].dropna().iloc[-1]
-                    price_found = float(last_valid)
-                
-                if t == "ESE.PA":
-                    print(f"   💎 ESE.PA (S&P 500) : {price_found:.2f} €")
-
-                if price_found > 0:
-                    prices[t] = price_found
-                else:
-                    print(f"   ⚠️ Pas de données récentes pour {t}")
-
-            except Exception as e:
-                print(f"   ❌ Erreur extraction {t}: {e}")
+        print(f"   ... Récupération de {t}")
+        tick_obj = yf.Ticker(t)
+        # On demande 5 jours pour être sûr d'avoir une clôture
+        hist = tick_obj.history(period="5d")
+        
+        if not hist.empty:
+            cur = float(hist['Close'].iloc[-1])
+            prices[t] = cur
+            print(f"      ✅ {t} : {cur:.2f} €")
+        else:
+            print(f"      ⚠️ {t} : Pas de données, utilisation PRU.")
+            prices[t] = 0.0
+            
+        # Petite pause de courtoisie pour éviter le blocage
+        time.sleep(0.5)
 
     except Exception as e:
-        print(f"❌ Échec global du téléchargement Yahoo : {e}")
+        print(f"      ❌ Erreur sur {t}: {e}")
+        prices[t] = 0.0
 
 # Application des prix
 def get_price_final(row):
@@ -101,13 +87,15 @@ if os.path.exists(FILE_HISTORY):
     try:
         df_hist = pd.read_csv(FILE_HISTORY, sep=';')
     except:
-        df_hist = pd.DataFrame() 
+        df_hist = pd.DataFrame()
 else:
     df_hist = pd.DataFrame()
 
+# Suppression doublon du jour
 if not df_hist.empty and 'Date' in df_hist.columns:
     df_hist = df_hist[df_hist['Date'] != today_str]
 
+# Calculs Variation vs J-1
 delta = 0.0
 perf_pct = 0.0
 ese_perf = 0.0
